@@ -8,7 +8,7 @@ def main():
     app.geometry("800x600")
 
     # Label to confirm window works
-    label = btk.CtkLabel(app, text="Welcome to Pain Image Editor!  :D",font=("Arial", 24))
+    label = ctk.CTkLabel(app, text="Welcome to Pain Image Editor!  :D",font=("Arial", 24))
     label.pack(pady=20)
 
     app.mainloop()
