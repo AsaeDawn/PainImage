@@ -7,7 +7,8 @@ class EditorCore:
 
     def __init__(self):
         self.current_image: Image.Image = None
-
+        self.history = [] 
+        self.redo_stack = []
         # Load filters and tools
         self.filters = self.load_filters()
         self.tools = self.load_tools()   # <-- YOU WERE MISSING THIS
@@ -66,6 +67,35 @@ class EditorCore:
     # -------------------------
     def apply_filter(self, name):
         if name in self.filters:
+            self.push_history()  
             self.current_image = self.filters[name](self.current_image)
             return True
         return False
+
+    def push_history(self):
+        if self.current_image:
+            self.history.append(self.current_image.copy())
+            # applying new action clears redo history
+            self.redo_stack.clear()
+
+    def undo(self):
+        if not self.history:
+            return False
+
+        # move current to redo stack
+        self.redo_stack.append(self.current_image.copy())
+
+        # restore last history
+        self.current_image = self.history.pop()
+        return True
+
+    def redo(self):
+        if not self.redo_stack:
+            return False
+
+        # push current state to undo history
+        self.history.append(self.current_image.copy())
+
+        # restore from redo
+        self.current_image = self.redo_stack.pop()
+        return True

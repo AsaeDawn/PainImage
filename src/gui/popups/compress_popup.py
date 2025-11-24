@@ -11,6 +11,9 @@ def open_compress_popup(app):
 
     def apply():
         kb = int(entry.get())
+
+        app.core.push_history()
+        
         app.core.current_image = app.core.tools["Compress to Size"](app.core.current_image, kb)
         app.refresh_preview()
         win.destroy()

@@ -15,6 +15,9 @@ def open_resize_popup(app):
     def apply():
         width = int(w_entry.get())
         height = int(h_entry.get())
+        
+        app.core.push_history()
+        
         app.core.current_image = app.core.tools["Resize Image"](app.core.current_image, width, height)
         app.refresh_preview()
         win.destroy()

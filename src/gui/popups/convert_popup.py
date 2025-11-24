@@ -17,6 +17,9 @@ def open_convert_popup(app):
 
 
 def apply(app, fmt, win):
+
+    app.core.push_history()
+    
     app.core.current_image = app.core.tools["Convert Format"](app.core.current_image, fmt)
     app.refresh_preview()
     win.destroy()

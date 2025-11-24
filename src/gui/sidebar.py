@@ -6,12 +6,17 @@ from gui.popups.resize_popup import open_resize_popup
 from gui.popups.compress_popup import open_compress_popup
 from gui.popups.convert_popup import open_convert_popup
 
-class Sidebar(ctk.CTkFrame):
+class Sidebar(ctk.CTkScrollableFrame):
 
     def __init__(self, master):
-        super().__init__(master, width=200, corner_radius=0)
+        super().__init__(master, corner_radius=0)
+        self.configure(width=220)
 
         self.master = master
+
+        # == undo/redo Buttons ==
+        ctk.CTkButton(self, text="Undo", command=self.undo).pack(pady=5, padx=20)
+        ctk.CTkButton(self, text="Redo", command=self.redo).pack(pady=5, padx=20)
 
         # == File Buttons ==
         ctk.CTkButton(self, text="Open Image", command=self.open_image).pack(pady=10, padx=20)
@@ -68,3 +73,11 @@ class Sidebar(ctk.CTkFrame):
     def apply_filter(self, name):
         self.master.core.apply_filter(name)
         self.master.refresh_preview()
+    
+    def undo(self):
+        if self.master.core.undo():
+            self.master.refresh_preview()
+
+    def redo(self):
+        if self.master.core.redo():
+            self.master.refresh_preview()
