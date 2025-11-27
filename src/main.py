@@ -1,5 +1,10 @@
-from gui.app import ImageEditorApp
+from PySide6.QtWidgets import QApplication
+import sys
+
+from gui.main_window import MainWindow
 
 if __name__ == "__main__":
-    app = ImageEditorApp()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    win = MainWindow()
+    win.show()
+    sys.exit(app.exec())

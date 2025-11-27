@@ -11,13 +11,20 @@ class EditorCore:
         self.redo_stack = []
         # Load filters and tools
         self.filters = self.load_filters()
-        self.tools = self.load_tools()   # <-- YOU WERE MISSING THIS
+        self.tools = self.load_tools()   
+        self.original_image = None
+        self.current_image = None
+
 
     # -------------------------
     # Load image
     # -------------------------
     def load_image(self, path):
-        self.current_image = Image.open(path)
+        img = Image.open(path)
+        self.original_image = img.copy()      # <-- store original
+        self.current_image = img.copy()       # <-- working copy
+        self.history = []
+        self.redo_stack = []
 
     # -------------------------
     # Filter Loader

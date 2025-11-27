@@ -1,0 +1,67 @@
+from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QFileDialog
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
+from utils.image_utils import pil_image_to_qpixmap
+
+class ImageView(QWidget):
+    request_open = Signal(str)  # optional: file path when clicking
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._pix = None
+        self._current_pil = None
+        self._original_pil = None
+
+        self.setAcceptDrops(True)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+
+        self.placeholder = QLabel("Click or drag an image here to open")
+        self.placeholder.setObjectName("placeholder")
+        self.placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.img_label = QLabel()
+        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_label.hide()
+
+        layout.addWidget(self.placeholder)
+        layout.addWidget(self.img_label, 1)
+
+    def display_image(self, pil_img):
+        """Set displayed image from PIL image."""
+        self._current_pil = pil_img
+        pix = pil_image_to_qpixmap(pil_img)
+        self.img_label.setPixmap(pix.scaled(self.img_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.img_label.show()
+        self.placeholder.hide()
+
+    def clear(self):
+        self._current_pil = None
+        self._original_pil = None
+        self.img_label.hide()
+        self.placeholder.show()
+
+    # resizing handling to rescale preview
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._current_pil:
+            self.display_image(self._current_pil)
+
+    # drag & drop
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if urls:
+            path = urls[0].toLocalFile()
+            self.request_open.emit(path)
+
+    # clicking to open
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)")
+            if path:
+                self.request_open.emit(path)
