@@ -1,6 +1,6 @@
 DARK_STYLE = """
 QWidget { background: #121318; color: #E6E6E6; font-family: Inter, Arial; }
-QPushButton { background: #1E1F26; border-radius: 6px; padding: 6px; }
+QPushButton { background: #1E1F26; border: 1px solid #2A2B33; border-radius: 6px; padding: 6px; }
 QPushButton:hover { background: #2A2B33; }
 QLabel#placeholder { color: #9AA0A6; font-size: 16px; }
 QTabWidget::tab-bar { alignment: center; }
