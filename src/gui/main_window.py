@@ -16,6 +16,8 @@ class MainWindow(QMainWindow):
         # Core backend
         self.core = EditorCore()
 
+        self.upscaler = self.core.ai_features["Upscaler"]
+
         self._showing_original = False
 
 
@@ -47,6 +49,10 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.image_view, 3)
         layout.addWidget(self.sidebar, 1)
+
+        # self.upscale_manager = UpscaleModelManager()
+        # self.upscaler_engine = UpscalerEngine(self.upscale_manager.model_path)
+
 
         # # Add topbar as toolbar area
         # self.addToolBar(self.topbar)  # QToolBar-like, but works with QWidget since PySide6 supports it
@@ -123,4 +129,17 @@ class MainWindow(QMainWindow):
             self.image_view.display_image(self.core.current_image)
         else:
             self.image_view.clear()
+
+    def run_upscale_from_ai(self):
+        if not self.core.current_image:
+            print("No image loaded")
+            return
+
+        result = self.upscaler.upscale(self.core.current_image)
+
+        self.core.push_history()
+        self.core.current_image = result.copy()
+
+        self.refresh_preview()
+
 

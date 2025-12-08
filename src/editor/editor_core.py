@@ -14,6 +14,8 @@ class EditorCore:
         self.tools = self.load_tools()   
         self.original_image = None
         self.current_image = None
+        self.ai_features = self.load_ai_features()
+
 
 
     # -------------------------
@@ -68,6 +70,30 @@ class EditorCore:
                 tools[tool_name] = tool_func
 
         return tools
+
+    def load_ai_features(self):
+        features = {}
+        ai_path = os.path.join(os.path.dirname(__file__), "ai_features")
+
+        for folder in os.listdir(ai_path):
+            dir_path = os.path.join(ai_path, folder)
+            if not os.path.isdir(dir_path):
+                continue
+
+            feature_file = os.path.join(dir_path, "feature.py")
+            if not os.path.exists(feature_file):
+                continue
+
+            module_name = f"editor.ai_features.{folder}.feature"
+            module = importlib.import_module(module_name)
+
+            name = getattr(module, "AI_NAME", folder)
+            cls = getattr(module, "AI_CLASS")
+
+            features[name] = cls()
+
+        return features
+
 
     # -------------------------
     # Apply filter by name

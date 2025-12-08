@@ -1,0 +1,117 @@
+.
+├── extra.py
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── .venv
+├── src
+│   ├── editor
+│   │   ├── ai_features
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   └── __init__.cpython-310.pyc
+│   │   │   ├── textremover
+│   │   │   │   └── text_remover.py
+│   │   │   └── upscaler
+│   │   │       ├── model
+│   │   │       ├── __pycache__
+│   │   │       │   ├── upscaler_engine.cpython-310.pyc
+│   │   │       │   └── upscaler_ui.cpython-310.pyc
+│   │   │       ├── upscale_manager.py
+│   │   │       ├── upscaler_engine.py
+│   │   │       └── upscaler_ui.py
+│   │   ├── editor_core.py
+│   │   ├── filters
+│   │   │   ├── blur.py
+│   │   │   ├── flip_horizontal.py
+│   │   │   ├── flip_vertical.py
+│   │   │   ├── grayscale.py
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── blur.cpython-310.pyc
+│   │   │   │   ├── blur.cpython-313.pyc
+│   │   │   │   ├── flip.cpython-313.pyc
+│   │   │   │   ├── flip_horizontal.cpython-310.pyc
+│   │   │   │   ├── flip_horizontal.cpython-313.pyc
+│   │   │   │   ├── flip_vertical.cpython-310.pyc
+│   │   │   │   ├── flip_vertical.cpython-313.pyc
+│   │   │   │   ├── grayscale.cpython-310.pyc
+│   │   │   │   ├── grayscale.cpython-313.pyc
+│   │   │   │   ├── __init__.cpython-310.pyc
+│   │   │   │   ├── __init__.cpython-313.pyc
+│   │   │   │   ├── rotate.cpython-313.pyc
+│   │   │   │   ├── rotate_left.cpython-310.pyc
+│   │   │   │   ├── rotate_left.cpython-313.pyc
+│   │   │   │   ├── rotate_right.cpython-310.pyc
+│   │   │   │   └── rotate_right.cpython-313.pyc
+│   │   │   ├── rotate_left.py
+│   │   │   └── rotate_right.py
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── editor_core.cpython-310.pyc
+│   │   │   ├── editor_core.cpython-313.pyc
+│   │   │   ├── __init__.cpython-310.pyc
+│   │   │   └── __init__.cpython-313.pyc
+│   │   └── tools
+│   │       ├── compress.py
+│   │       ├── convert.py
+│   │       ├── __init__.py
+│   │       ├── __pycache__
+│   │       │   ├── compress.cpython-310.pyc
+│   │       │   ├── compress.cpython-313.pyc
+│   │       │   ├── convert.cpython-310.pyc
+│   │       │   ├── convert.cpython-313.pyc
+│   │       │   ├── __init__.cpython-310.pyc
+│   │       │   ├── __init__.cpython-313.pyc
+│   │       │   ├── resize.cpython-310.pyc
+│   │       │   └── resize.cpython-313.pyc
+│   │       └── resize.py
+│   ├── gui
+│   │   ├── app.ico
+│   │   ├── image_view.py
+│   │   ├── __init__.py
+│   │   ├── main_window.py
+│   │   ├── __pycache__
+│   │   │   ├── image_view.cpython-310.pyc
+│   │   │   ├── image_view.cpython-313.pyc
+│   │   │   ├── __init__.cpython-310.pyc
+│   │   │   ├── __init__.cpython-313.pyc
+│   │   │   ├── main_window.cpython-310.pyc
+│   │   │   ├── main_window.cpython-313.pyc
+│   │   │   ├── sidebar.cpython-310.pyc
+│   │   │   ├── sidebar.cpython-313.pyc
+│   │   │   ├── styles.cpython-310.pyc
+│   │   │   ├── styles.cpython-313.pyc
+│   │   │   ├── topbar.cpython-310.pyc
+│   │   │   └── topbar.cpython-313.pyc
+│   │   ├── sidebar.py
+│   │   ├── styles.py
+│   │   ├── tabs
+│   │   │   ├── ai_tab.py
+│   │   │   ├── filters_tab.py
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── ai_tab.cpython-310.pyc
+│   │   │   │   ├── ai_tab.cpython-313.pyc
+│   │   │   │   ├── filters_tab.cpython-310.pyc
+│   │   │   │   ├── filters_tab.cpython-313.pyc
+│   │   │   │   ├── __init__.cpython-310.pyc
+│   │   │   │   ├── __init__.cpython-313.pyc
+│   │   │   │   ├── tools_tab.cpython-310.pyc
+│   │   │   │   └── tools_tab.cpython-313.pyc
+│   │   │   └── tools_tab.py
+│   │   └── topbar.py
+│   ├── main.py
+│   ├── __pycache__
+│   │   ├── gui.cpython-313.pyc
+│   │   └── image_ops.cpython-313.pyc
+│   └── utils
+│       ├── image_utils.py
+│       ├── __init__.py
+│       └── __pycache__
+│           ├── image_utils.cpython-310.pyc
+│           ├── image_utils.cpython-313.pyc
+│           ├── __init__.cpython-310.pyc
+│           └── __init__.cpython-313.pyc
+└── structure.txt
+

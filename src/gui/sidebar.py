@@ -16,6 +16,7 @@ class SideBar(QWidget):
         self.filters_tab = FiltersTab(self.core, parent=self)
         self.tools_tab = ToolsTab(self.core, parent=self)
         self.ai_tab = AITab(self.core, parent=self)
+        self.ai_tab.upscale_requested.connect(parent.run_upscale_from_ai)
 
         self.tabs.addTab(self.filters_tab, "Filters")
         self.tabs.addTab(self.tools_tab, "Tools")

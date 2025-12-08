@@ -1,22 +1,18 @@
 import os
-import urllib.request
 
-class UpscalerModelManager:
+class UpscaleModelManager:
     def __init__(self):
-        self.model_dir = "editor/ai_features/upscaler/model"
-        self.model_path = os.path.join(self.model_dir, "realesrgan_x4_lite.pth")
-        self.model_url = "https://yourserver.com/models/realesrgan_x4_lite.pth"
+        self.model_dir = os.path.join(
+            os.path.dirname(__file__), "model"
+        )
 
-    def model_exists(self):
-        return os.path.exists(self.model_path)
+    def exists(self):
+        return (
+            os.path.exists(os.path.join(self.model_dir, "realesrgan-ncnn-vulkan")) and
+            os.path.exists(os.path.join(self.model_dir, "realesrgan-x4.bin")) and
+            os.path.exists(os.path.join(self.model_dir, "realesrgan-x4.param"))
+        )
 
-    def download_model(self, progress_callback=None):
-        os.makedirs(self.model_dir, exist_ok=True)
-
-        def report(count, block_size, total_size):
-            if progress_callback:
-                percent = int(count * block_size * 100 / total_size)
-                progress_callback(percent)
-
-        urllib.request.urlretrieve(self.model_url, self.model_path, report)
-        return self.model_path
+    def download(self, progress_callback=None):
+        # Not needed right now since your files are already present
+        pass
