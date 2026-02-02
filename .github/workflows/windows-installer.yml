@@ -53,4 +53,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PainImage-Windows-Installer
-          path: PainImage-Setup.exe
+          path: src/PainImage-Setup.exe
