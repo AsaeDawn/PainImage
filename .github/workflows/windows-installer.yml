@@ -30,15 +30,16 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller ^
-            --name PainImage ^
-            --windowed ^
-            --onefile ^
-            --icon gui/app.ico ^
-            --collect-all PySide6 ^
-            --collect-submodules PySide6.QtPlugins ^
-            --add-data "editor/ai_features/upscaler/model;editor/ai_features/upscaler/model" ^
+          pyinstaller `
+            --name PainImage `
+            --windowed `
+            --onefile `
+            --icon gui/app.ico `
+            --collect-all PySide6 `
+            --collect-submodules PySide6.QtPlugins `
+            --add-data "editor/ai_features/upscaler/model;editor/ai_features/upscaler/model" `
             main.py
+
 
       - name: Install Inno Setup
         run: |
