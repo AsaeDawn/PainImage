@@ -7,10 +7,10 @@ OutputBaseFilename=PainImage-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=src\gui\app.ico
+SetupIconFile=gui\app.ico
 
 [Files]
-Source: "src\dist\PainImage.exe"; DestDir: "{app}"
+Source: "dist\PainImage.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\PainImage"; Filename: "{app}\PainImage.exe"
