@@ -1,0 +1,111 @@
+Full Directory:
+asae@asae-VirtualBox:~/Projects/PainImage/src$ tree
+.
+├── editor
+│   ├── ai_features
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   └── __init__.cpython-312.pyc
+│   │   └── upscaler
+│   │       ├── feature.py
+│   │       ├── __init__.py
+│   │       ├── model
+│   │       │   └── realesrgan-ncnn-vulkan
+│   │       ├── __pycache__
+│   │       │   ├── feature.cpython-312.pyc
+│   │       │   ├── __init__.cpython-312.pyc
+│   │       │   ├── upscale_manager.cpython-312.pyc
+│   │       │   └── upscaler_engine.cpython-312.pyc
+│   │       ├── upscale_manager.py
+│   │       └── upscaler_engine.py
+│   ├── editor_core.py
+│   ├── filters
+│   │   ├── blur.py
+│   │   ├── flip_horizontal.py
+│   │   ├── flip_vertical.py
+│   │   ├── grayscale.py
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── blur.cpython-312.pyc
+│   │   │   ├── flip_horizontal.cpython-312.pyc
+│   │   │   ├── flip_vertical.cpython-312.pyc
+│   │   │   ├── grayscale.cpython-312.pyc
+│   │   │   ├── __init__.cpython-312.pyc
+│   │   │   ├── rotate_left.cpython-312.pyc
+│   │   │   └── rotate_right.cpython-312.pyc
+│   │   ├── rotate_left.py
+│   │   └── rotate_right.py
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── editor_core.cpython-312.pyc
+│   │   └── __init__.cpython-312.pyc
+│   └── tools
+│       ├── compress.py
+│       ├── convert.py
+│       ├── __init__.py
+│       ├── __pycache__
+│       │   ├── compress.cpython-312.pyc
+│       │   ├── convert.cpython-312.pyc
+│       │   ├── __init__.cpython-312.pyc
+│       │   └── resize.cpython-312.pyc
+│       └── resize.py
+├── gui
+│   ├── app.ico
+│   ├── image_view.py
+│   ├── __init__.py
+│   ├── main_window.py
+│   ├── __pycache__
+│   │   ├── image_view.cpython-312.pyc
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── main_window.cpython-312.pyc
+│   │   ├── sidebar.cpython-312.pyc
+│   │   ├── styles.cpython-312.pyc
+│   │   └── topbar.cpython-312.pyc
+│   ├── sidebar.py
+│   ├── styles.py
+│   ├── tabs
+│   │   ├── ai_tab.py
+│   │   ├── filters_tab.py
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── ai_tab.cpython-312.pyc
+│   │   │   ├── filters_tab.cpython-312.pyc
+│   │   │   ├── __init__.cpython-312.pyc
+│   │   │   └── tools_tab.cpython-312.pyc
+│   │   └── tools_tab.py
+│   └── topbar.py
+├── main.py
+└── utils
+    ├── image_utils.py
+    ├── __init__.py
+    └── __pycache__
+        ├── image_utils.cpython-312.pyc
+        └── __init__.cpython-312.pyc
+
+18 directories, 63 files
+
+
+
+To WORK LIST:
+1) fix tools
+2) fix AI
+3) add batch processing in tools
+4) CROP + preset ratios
+5) Convert to WebP / AVIF
+6) 
+
+AI FEATURES:
+
+Background remover
+Single click → transparent PNG
+
+Denoise
+Especially for low-light images
+
+Face enhancement (light)
+Only for portraits, subtle only
+
+Smart crop
+Auto center subject, suggest best crop
+
+Colorize B&W photos (optional, wow factor)
