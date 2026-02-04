@@ -1,7 +1,15 @@
+import sys
 import os
 import importlib
 from PIL import Image
 
+def resource_path(relative_path):
+    """
+    Get absolute path to resource, works for dev and PyInstaller
+    """
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
 
 class EditorCore:
 
@@ -34,7 +42,11 @@ class EditorCore:
     def load_filters(self):
         filters = {}
 
-        filters_path = os.path.join(os.path.dirname(__file__), "filters")
+        filters_path = resource_path("editor/filters")
+
+        if not os.path.exists(filters_path):
+            return filters
+
 
         for file in os.listdir(filters_path):
             if file.endswith(".py") and file not in ["__init__.py"]:
@@ -54,7 +66,7 @@ class EditorCore:
     def load_tools(self):
         tools = {}
 
-        tools_path = os.path.join(os.path.dirname(__file__), "tools")
+        tools_path = resource_path("editor/tools")
 
         if not os.path.exists(tools_path):
             return tools  # No tools yet
@@ -73,7 +85,11 @@ class EditorCore:
 
     def load_ai_features(self):
         features = {}
-        ai_path = os.path.join(os.path.dirname(__file__), "ai_features")
+        ai_path = resource_path("editor/ai_features")
+
+        if not os.path.exists(ai_path):
+            return features
+
 
         for folder in os.listdir(ai_path):
             dir_path = os.path.join(ai_path, folder)

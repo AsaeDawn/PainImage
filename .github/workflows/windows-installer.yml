@@ -37,6 +37,9 @@ jobs:
             --icon gui/app.ico `
             --collect-all PySide6 `
             --collect-submodules PySide6.QtPlugins `
+            --collect-submodules editor `
+            --add-data "editor/filters;editor/filters" `
+            --add-data "editor/tools;editor/tools" `
             --add-data "editor/ai_features/upscaler/model;editor/ai_features/upscaler/model" `
             main.py
 
