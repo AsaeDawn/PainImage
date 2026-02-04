@@ -3,6 +3,7 @@ import os
 import importlib
 from PIL import Image
 
+
 def resource_path(relative_path):
     """
     Get absolute path to resource, works for dev and PyInstaller
@@ -11,85 +12,84 @@ def resource_path(relative_path):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
+
 class EditorCore:
 
     def __init__(self):
-        self.current_image: Image.Image = None
-        self.history = [] 
+        self.original_image = None          # LAST COMMITTED IMAGE
+        self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
+
+        self.history = []
         self.redo_stack = []
-        # Load filters and tools
+
         self.filters = self.load_filters()
-        self.tools = self.load_tools()   
-        self.original_image = None
-        self.current_image = None
+        self.tools = self.load_tools()
         self.ai_features = self.load_ai_features()
 
-
+        self.preview_base_image = None
+        self.in_preview = False
 
     # -------------------------
     # Load image
     # -------------------------
     def load_image(self, path):
-        img = Image.open(path)
-        self.original_image = img.copy()      # <-- store original
-        self.current_image = img.copy()       # <-- working copy
-        self.history = []
-        self.redo_stack = []
+        img = Image.open(path).convert("RGB")
+
+        self.original_image = img.copy()
+        self.current_image = img.copy()
+
+        self.history.clear()
+        self.redo_stack.clear()
 
     # -------------------------
     # Filter Loader
     # -------------------------
     def load_filters(self):
         filters = {}
-
         filters_path = resource_path("editor/filters")
 
         if not os.path.exists(filters_path):
             return filters
 
-
         for file in os.listdir(filters_path):
-            if file.endswith(".py") and file not in ["__init__.py"]:
+            if file.endswith(".py") and file != "__init__.py":
                 module_name = f"editor.filters.{file[:-3]}"
                 module = importlib.import_module(module_name)
 
                 filter_name = getattr(module, "FILTER_NAME", file[:-3])
-                filter_func = getattr(module, "run")
-
-                filters[filter_name] = filter_func
+                filters[filter_name] = module
 
         return filters
 
     # -------------------------
-    # Tool Loader  (NEW)
+    # Tool Loader
     # -------------------------
     def load_tools(self):
         tools = {}
-
         tools_path = resource_path("editor/tools")
 
         if not os.path.exists(tools_path):
-            return tools  # No tools yet
+            return tools
 
         for file in os.listdir(tools_path):
-            if file.endswith(".py") and file not in ["__init__.py"]:
+            if file.endswith(".py") and file != "__init__.py":
                 module_name = f"editor.tools.{file[:-3]}"
                 module = importlib.import_module(module_name)
 
                 tool_name = getattr(module, "TOOL_NAME", file[:-3])
-                tool_func = getattr(module, "run")
-
-                tools[tool_name] = tool_func
+                tools[tool_name] = module
 
         return tools
 
+    # -------------------------
+    # AI Feature Loader
+    # -------------------------
     def load_ai_features(self):
         features = {}
         ai_path = resource_path("editor/ai_features")
 
         if not os.path.exists(ai_path):
             return features
-
 
         for folder in os.listdir(ai_path):
             dir_path = os.path.join(ai_path, folder)
@@ -105,46 +105,82 @@ class EditorCore:
 
             name = getattr(module, "AI_NAME", folder)
             cls = getattr(module, "AI_CLASS")
-
             features[name] = cls()
 
         return features
 
+    # =====================================================
+    # DESTRUCTIVE FILTERS (BUTTON FILTERS)
+    # =====================================================
+    def apply_filter(self, name, **kwargs):
+        if name not in self.filters or self.original_image is None:
+            return False
 
-    # -------------------------
-    # Apply filter by name
-    # -------------------------
-    def apply_filter(self, name):
-        if name in self.filters:
-            self.push_history()  
-            self.current_image = self.filters[name](self.current_image)
-            return True
+        # save state
+        self.history.append(self.original_image.copy())
+        self.redo_stack.clear()
+
+        module = self.filters[name]
+
+        if kwargs:
+            self.original_image = module.run(self.original_image, **kwargs)
+        else:
+            self.original_image = module.run(self.original_image)
+
+        self.current_image = self.original_image.copy()
+        return True
+
+    # =====================================================
+    # PREVIEW (SLIDERS – NON DESTRUCTIVE)
+    # =====================================================
+    def begin_preview(self):
+        if self.original_image:
+            # Always preview from last committed base
+            self.preview_base_image = self.original_image.copy()
+            self.in_preview = True
+
+
+    def apply_preview_filter(self, name, **kwargs):
+        if not self.in_preview or self.preview_base_image is None:
+            return False
+
+        module = self.filters[name]
+        self.current_image = module.run(self.preview_base_image, **kwargs)
+        return True
+
+def commit_preview(self):
+    if not self.in_preview:
         return False
 
-    def push_history(self):
-        if self.current_image:
-            self.history.append(self.current_image.copy())
-            # applying new action clears redo history
-            self.redo_stack.clear()
+    # save ORIGINAL base, not preview result
+    self.history.append(self.original_image.copy())
+    self.redo_stack.clear()
 
+    # commit preview result as new base
+    self.original_image = self.current_image.copy()
+
+    self.preview_base_image = None
+    self.in_preview = False
+    return True
+
+
+    # -------------------------
+    # Undo / Redo
+    # -------------------------
     def undo(self):
         if not self.history:
             return False
 
-        # move current to redo stack
-        self.redo_stack.append(self.current_image.copy())
-
-        # restore last history
-        self.current_image = self.history.pop()
+        self.redo_stack.append(self.original_image.copy())
+        self.original_image = self.history.pop()
+        self.current_image = self.original_image.copy()
         return True
 
     def redo(self):
         if not self.redo_stack:
             return False
 
-        # push current state to undo history
-        self.history.append(self.current_image.copy())
-
-        # restore from redo
-        self.current_image = self.redo_stack.pop()
+        self.history.append(self.original_image.copy())
+        self.original_image = self.redo_stack.pop()
+        self.current_image = self.original_image.copy()
         return True
