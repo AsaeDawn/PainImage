@@ -1,5 +1,6 @@
 import subprocess
 import os
+import tempfile
 from PIL import Image
 
 class UpscalerEngine:
@@ -15,8 +16,8 @@ class UpscalerEngine:
 
     def upscale(self, pil_image: Image.Image):
         # Temporary file paths
-        input_path = "/tmp/upscale_input.png"
-        output_path = "/tmp/upscale_output.png"
+        input_path = os.path.join(tempfile.gettempdir(), "upscale_input.png")
+        output_path = os.path.join(tempfile.gettempdir(), "upscale_output.png")
 
         # Save image to disk (NCNN works with file paths)
         pil_image.save(input_path)

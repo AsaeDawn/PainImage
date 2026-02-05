@@ -1,11 +1,27 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QToolBar, QStatusBar
+from PySide6.QtCore import Qt, QThread, Signal
 from editor.editor_core import EditorCore
 
 from gui.topbar import TopBar
 from gui.image_view import ImageView
 from gui.sidebar import SideBar
 from gui.styles import DARK_STYLE, LIGHT_STYLE
-from PySide6.QtWidgets import QToolBar
+
+class UpscaleWorker(QThread):
+    finished = Signal(object)
+    error = Signal(str)
+
+    def __init__(self, upscaler, image):
+        super().__init__()
+        self.upscaler = upscaler
+        self.image = image
+
+    def run(self):
+        try:
+            result = self.upscaler.upscale(self.image)
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -60,11 +76,12 @@ class MainWindow(QMainWindow):
         
 
         toolbar = QToolBar("TopBar")
-        toolbar.setMovable(False)  # keep slim & fixed
+        toolbar.setMovable(False)
         toolbar.setFloatable(False)
         toolbar.addWidget(self.topbar)
         self.addToolBar(toolbar)
 
+        self.setStatusBar(QStatusBar())
 
         # default theme
         self._dark = True
@@ -132,14 +149,31 @@ class MainWindow(QMainWindow):
 
     def run_upscale_from_ai(self):
         if not self.core.current_image:
-            print("No image loaded")
+            self.statusBar().showMessage("No image loaded", 3000)
             return
 
-        result = self.upscaler.upscale(self.core.current_image)
+        self.statusBar().showMessage("AI Upscaling in progress... please wait.")
+        self.topbar.setEnabled(False)
+        self.sidebar.setEnabled(False)
 
+        self.worker = UpscaleWorker(self.upscaler, self.core.current_image)
+        self.worker.finished.connect(self._on_upscale_finished)
+        self.worker.error.connect(self._on_upscale_error)
+        self.worker.start()
+
+    def _on_upscale_finished(self, result):
         self.core.push_history()
+        self.core.original_image = result.copy()
         self.core.current_image = result.copy()
-
         self.refresh_preview()
+        
+        self.topbar.setEnabled(True)
+        self.sidebar.setEnabled(True)
+        self.statusBar().showMessage("Upscaling complete!", 3000)
+
+    def _on_upscale_error(self, message):
+        self.topbar.setEnabled(True)
+        self.sidebar.setEnabled(True)
+        self.statusBar().showMessage(f"Upscaling error: {message}", 5000)
 
 
