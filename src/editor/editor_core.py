@@ -42,6 +42,8 @@ class EditorCore:
 
         self.history.clear()
         self.redo_stack.clear()
+        # Default state: no slider adjustments
+        self._initial_slider_state = {} 
 
     # -------------------------
     # Filter Loader
@@ -149,9 +151,11 @@ class EditorCore:
         self.current_image = self.original_image.copy()
         return True
 
-    def push_history(self):
+    def push_history(self, slider_state=None):
         if self.original_image:
-            self.history.append(self.original_image.copy())
+            # Store image and the state of sliders *at that moment*
+            state = (self.original_image.copy(), slider_state.copy() if slider_state else {})
+            self.history.append(state)
             if len(self.history) > self.max_history:
                 self.history.pop(0)
             self.redo_stack.clear()
@@ -196,20 +200,32 @@ class EditorCore:
     # -------------------------
     # Undo / Redo
     # -------------------------
-    def undo(self):
+    def undo(self, current_slider_state=None):
         if not self.history:
-            return False
+            return None
 
-        self.redo_stack.append(self.original_image.copy())
-        self.original_image = self.history.pop()
-        self.current_image = self.original_image.copy()
-        return True
+        # Save current state to redo stack before moving back
+        current_state = (self.original_image.copy(), current_slider_state.copy() if current_slider_state else {})
+        self.redo_stack.append(current_state)
 
-    def redo(self):
+        # Restore previous state
+        image, slider_state = self.history.pop()
+        self.original_image = image.copy()
+        self.current_image = image.copy()
+
+        return slider_state
+
+    def redo(self, current_slider_state=None):
         if not self.redo_stack:
-            return False
+            return None
 
-        self.history.append(self.original_image.copy())
-        self.original_image = self.redo_stack.pop()
-        self.current_image = self.original_image.copy()
-        return True
+        # Save current state to history before moving forward
+        current_state = (self.original_image.copy(), current_slider_state.copy() if current_slider_state else {})
+        self.history.append(current_state)
+
+        # Restore next state
+        image, slider_state = self.redo_stack.pop()
+        self.original_image = image.copy()
+        self.current_image = image.copy()
+
+        return slider_state

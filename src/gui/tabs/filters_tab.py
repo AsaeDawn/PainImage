@@ -27,8 +27,9 @@ class FiltersTab(QWidget):
         self.vbox = QVBoxLayout(container)
         self.vbox.setSpacing(10)
 
-        # Track active slider values (default 50 = neutral for both Brightness and Contrast)
+        # Track active slider values
         self.slider_values = {}
+        self.slider_widgets = {}
 
         for name in sorted(self.core.filters.keys()):
             filter_obj = self.core.filters[name]
@@ -50,8 +51,11 @@ class FiltersTab(QWidget):
                 slider.valueChanged.connect(
                     lambda value, n=name: self.on_slider_changed(n, value)
                 )
+                # Auto-save history when slider is released
+                slider.sliderReleased.connect(self.commit_to_history)
 
                 self.vbox.addWidget(slider)
+                self.slider_widgets[name] = slider
 
             # ---------- SIMPLE FILTER ----------
             else:
@@ -62,30 +66,21 @@ class FiltersTab(QWidget):
                 )
                 self.vbox.addWidget(btn)
 
-        # Add Apply button for sliders
-        self.apply_btn = QPushButton("Apply Slider Changes")
-        self.apply_btn.setObjectName("apply_sliders_btn")
-        self.apply_btn.clicked.connect(self.commit_sliders)
-        self.vbox.addWidget(self.apply_btn)
-
         self.vbox.addStretch(1)
         scroll.setWidget(container)
         layout.addWidget(scroll)
 
     # -------------------------
-    # Filter handlers
-    # -------------------------
     def apply_simple_filter(self, name):
-        # Don't bake sliders into this action, just apply the filter to the base
+        # Commit current slider state to history BEFORE applying a new filter
+        self.core.push_history(self.slider_values)
         self.core.apply_filter(name)
-        # Re-apply the current slider positions on top of the new base image
+        # Re-apply current slider values to the NEW filtered base
         self.apply_combined_filters()
 
-    def commit_sliders(self):
-        if self.core.in_preview:
-            self.core.commit_preview()
-            self.reset_all_sliders()
-            self.filter_applied.emit()
+    def commit_to_history(self):
+        """Save the current visual state to undo history."""
+        self.core.push_history(self.slider_values)
 
     def on_slider_changed(self, name, value):
         self.slider_values[name] = value
@@ -110,12 +105,17 @@ class FiltersTab(QWidget):
         self.filter_applied.emit()
 
     def reset_all_sliders(self):
-        # Visually reset sliders without triggering double processing if possible
-        self.slider_values = {name: 50 for name in self.slider_values}
-        # Find all sliders in layout and set to 50
-        for i in range(self.vbox.count()):
-            widget = self.vbox.itemAt(i).widget()
-            if isinstance(widget, QSlider):
-                widget.blockSignals(True)
-                widget.setValue(50)
-                widget.blockSignals(False)
+        self.set_slider_state({name: 50 for name in self.slider_values})
+
+    def set_slider_state(self, state):
+        """Update slider positions from a dictionary without triggering new calculations."""
+        self.slider_values = state.copy()
+        
+        for name, slider in self.slider_widgets.items():
+            val = state.get(name, 50)
+            slider.blockSignals(True)
+            slider.setValue(val)
+            slider.blockSignals(False)
+        
+        # update display based on restored state
+        self.apply_combined_filters()

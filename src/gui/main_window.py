@@ -125,13 +125,15 @@ class MainWindow(QMainWindow):
         self.refresh_preview()
 
     def on_undo(self):
-        if self.core.undo():
-            self.sidebar.filters_tab.reset_all_sliders()
+        slider_state = self.core.undo(self.sidebar.filters_tab.slider_values)
+        if slider_state is not None:
+            self.sidebar.filters_tab.set_slider_state(slider_state)
             self.refresh_preview()
 
     def on_redo(self):
-        if self.core.redo():
-            self.sidebar.filters_tab.reset_all_sliders()
+        slider_state = self.core.redo(self.sidebar.filters_tab.slider_values)
+        if slider_state is not None:
+            self.sidebar.filters_tab.set_slider_state(slider_state)
             self.refresh_preview()
 
     def on_toggle_theme(self):
