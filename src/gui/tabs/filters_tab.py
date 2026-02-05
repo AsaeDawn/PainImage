@@ -30,6 +30,7 @@ class FiltersTab(QWidget):
         # Track active slider values
         self.slider_values = {}
         self.slider_widgets = {}
+        self.slider_state_before_move = {}
 
         for name in sorted(self.core.filters.keys()):
             filter_obj = self.core.filters[name]
@@ -47,10 +48,17 @@ class FiltersTab(QWidget):
                 slider.setMaximum(100)
                 slider.setValue(50) 
                 slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                
+                # Add tick marks
+                slider.setTickPosition(QSlider.TicksBelow)
+                slider.setTickInterval(25)
 
                 slider.valueChanged.connect(
                     lambda value, n=name: self.on_slider_changed(n, value)
                 )
+                
+                # Undo tracking: capture state BEFORE move starts
+                slider.sliderPressed.connect(self.capture_before_move)
                 # Auto-save history when slider is released
                 slider.sliderReleased.connect(self.commit_to_history)
 
@@ -72,15 +80,20 @@ class FiltersTab(QWidget):
 
     # -------------------------
     def apply_simple_filter(self, name):
-        # Commit current slider state to history BEFORE applying a new filter
+        # Save current state (including current sliders) before applying destructive filter
         self.core.push_history(self.slider_values)
         self.core.apply_filter(name)
-        # Re-apply current slider values to the NEW filtered base
+        # Apply current sliders ON TOP of the new filtered image
         self.apply_combined_filters()
 
+    def capture_before_move(self):
+        """Store the current positions before a new adjustment starts."""
+        self.slider_state_before_move = self.slider_values.copy()
+
     def commit_to_history(self):
-        """Save the current visual state to undo history."""
-        self.core.push_history(self.slider_values)
+        """Save history only if values actually changed."""
+        if self.slider_values != self.slider_state_before_move:
+            self.core.push_history(self.slider_state_before_move)
 
     def on_slider_changed(self, name, value):
         self.slider_values[name] = value

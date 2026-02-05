@@ -138,9 +138,6 @@ class EditorCore:
         if name not in self.filters or self.original_image is None:
             return False
 
-        # save state
-        self.push_history()
-
         module = self.filters[name]
 
         if kwargs:
