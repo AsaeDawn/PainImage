@@ -76,11 +76,10 @@ class FiltersTab(QWidget):
     # Filter handlers
     # -------------------------
     def apply_simple_filter(self, name):
-        if self.core.in_preview:
-            self.core.commit_preview()
+        # Don't bake sliders into this action, just apply the filter to the base
         self.core.apply_filter(name)
-        self.reset_all_sliders()
-        self.filter_applied.emit()
+        # Re-apply the current slider positions on top of the new base image
+        self.apply_combined_filters()
 
     def commit_sliders(self):
         if self.core.in_preview:
