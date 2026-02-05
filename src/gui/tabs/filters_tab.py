@@ -24,39 +24,34 @@ class FiltersTab(QWidget):
         scroll.setWidgetResizable(True)
 
         container = QWidget()
-        vbox = QVBoxLayout(container)
-        vbox.setSpacing(10)
+        self.vbox = QVBoxLayout(container)
+        self.vbox.setSpacing(10)
+
+        # Track active slider values (default 50 = neutral for both Brightness and Contrast)
+        self.slider_values = {}
 
         for name in sorted(self.core.filters.keys()):
             filter_obj = self.core.filters[name]
 
-            # ---------- PARAMETER (DELTA) FILTER ----------
+            # ---------- PARAMETER FILTER (e.g. Brightness, Contrast) ----------
             if getattr(filter_obj, "HAS_PARAMS", False):
+                self.slider_values[name] = 50  # default neutral
+
                 label = QLabel(name)
                 label.setStyleSheet("font-weight: bold;")
-                vbox.addWidget(label)
-
-                # expect DELTA param
-                param = filter_obj.PARAMS["delta"]
+                self.vbox.addWidget(label)
 
                 slider = QSlider(Qt.Horizontal)
-                slider.setMinimum(param["min"])
-                slider.setMaximum(param["max"])
-                slider.setValue(0)  # ALWAYS neutral
+                slider.setMinimum(0)
+                slider.setMaximum(100)
+                slider.setValue(50) 
                 slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-                # preview lifecycle
-                slider.sliderPressed.connect(self.core.begin_preview)
-
                 slider.valueChanged.connect(
-                    lambda value, n=name: self.preview_delta_filter(n, value)
+                    lambda value, n=name: self.on_slider_changed(n, value)
                 )
 
-                slider.sliderReleased.connect(
-                    lambda s=slider: self.commit_delta_preview(s)
-                )
-
-                vbox.addWidget(slider)
+                self.vbox.addWidget(slider)
 
             # ---------- SIMPLE FILTER ----------
             else:
@@ -65,9 +60,15 @@ class FiltersTab(QWidget):
                 btn.clicked.connect(
                     lambda checked=False, n=name: self.apply_simple_filter(n)
                 )
-                vbox.addWidget(btn)
+                self.vbox.addWidget(btn)
 
-        vbox.addStretch(1)
+        # Add Apply button for sliders
+        self.apply_btn = QPushButton("Apply Slider Changes")
+        self.apply_btn.setObjectName("apply_sliders_btn")
+        self.apply_btn.clicked.connect(self.commit_sliders)
+        self.vbox.addWidget(self.apply_btn)
+
+        self.vbox.addStretch(1)
         scroll.setWidget(container)
         layout.addWidget(scroll)
 
@@ -75,14 +76,47 @@ class FiltersTab(QWidget):
     # Filter handlers
     # -------------------------
     def apply_simple_filter(self, name):
+        if self.core.in_preview:
+            self.core.commit_preview()
         self.core.apply_filter(name)
+        self.reset_all_sliders()
         self.filter_applied.emit()
 
-    def preview_delta_filter(self, name, delta):
-        self.core.apply_preview_filter(name, delta=delta)
+    def commit_sliders(self):
+        if self.core.in_preview:
+            self.core.commit_preview()
+            self.reset_all_sliders()
+            self.filter_applied.emit()
+
+    def on_slider_changed(self, name, value):
+        self.slider_values[name] = value
+        self.apply_combined_filters()
+
+    def apply_combined_filters(self):
+        """Apply all active sliders to the current base image."""
+        self.core.in_preview = True # Ensure preview mode is active
+        
+        filter_list = []
+        for name, value in self.slider_values.items():
+            if value != 50:
+                delta = (value - 50) * 2
+                filter_list.append((name, {"delta": delta}))
+        
+        # If no sliders are active, just show original base
+        if not filter_list:
+            self.core.current_image = self.core.original_image.copy()
+        else:
+            self.core.apply_preview_filters(filter_list)
+        
         self.filter_applied.emit()
 
-    def commit_delta_preview(self, slider):
-        self.core.commit_preview()
-        slider.setValue(0)  # reset to neutral every time
-        self.filter_applied.emit()
+    def reset_all_sliders(self):
+        # Visually reset sliders without triggering double processing if possible
+        self.slider_values = {name: 50 for name in self.slider_values}
+        # Find all sliders in layout and set to 50
+        for i in range(self.vbox.count()):
+            widget = self.vbox.itemAt(i).widget()
+            if isinstance(widget, QSlider):
+                widget.blockSignals(True)
+                widget.setValue(50)
+                widget.blockSignals(False)

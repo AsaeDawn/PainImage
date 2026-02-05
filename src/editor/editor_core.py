@@ -24,7 +24,8 @@ class EditorCore:
         self.tools = self.load_tools()
         self.ai_features = self.load_ai_features()
 
-        self.original_image = None          # LAST COMMITTED IMAGE
+        self.initial_image = None           # TRUE ORIGINAL (UNEDITED)
+        self.original_image = None          # LAST COMMITTED IMAGE (BASE FOR SLIDERS)
         self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
         self.preview_base_image = None
         self.in_preview = False
@@ -35,6 +36,7 @@ class EditorCore:
     def load_image(self, path):
         img = Image.open(path).convert("RGB")
 
+        self.initial_image = img.copy()       # Store true original
         self.original_image = img.copy()
         self.current_image = img.copy()
 
@@ -157,32 +159,37 @@ class EditorCore:
     # =====================================================
     # PREVIEW (SLIDERS – NON DESTRUCTIVE)
     # =====================================================
-    def begin_preview(self):
-        if self.original_image:
-            # Always preview from last committed base
-            self.preview_base_image = self.original_image.copy()
-            self.in_preview = True
-
     def apply_preview_filter(self, name, **kwargs):
-        if not self.in_preview or self.preview_base_image is None:
+        """Single preview filter application."""
+        if not self.in_preview or self.original_image is None:
             return False
 
         module = self.filters[name]
-        self.current_image = module.run(self.preview_base_image, **kwargs)
+        self.current_image = module.run(self.original_image, **kwargs)
         return True
 
+    def apply_preview_filters(self, filter_list):
+        """Apply multiple preview filters in a chain starting from original_image."""
+        if not self.in_preview or self.original_image is None:
+            return False
+            
+        img = self.original_image.copy()
+        for name, kwargs in filter_list:
+            if name in self.filters:
+                img = self.filters[name].run(img, **kwargs)
+        
+        self.current_image = img
+        return True
 
     def commit_preview(self):
-        if not self.in_preview:
+        """Permanently apply current preview state to history."""
+        if not self.in_preview or self.current_image is None:
             return False
 
-        # save ORIGINAL base, not preview result
         self.push_history()
-
-        # commit preview result as new base
         self.original_image = self.current_image.copy()
-
-        self.preview_base_image = None
+        # Preview stays active but base defaults to new original if we wanted, 
+        # but for simple sliders we usually stop preview after commit.
         self.in_preview = False
         return True
 

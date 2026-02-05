@@ -126,10 +126,12 @@ class MainWindow(QMainWindow):
 
     def on_undo(self):
         if self.core.undo():
+            self.sidebar.filters_tab.reset_all_sliders()
             self.refresh_preview()
 
     def on_redo(self):
         if self.core.redo():
+            self.sidebar.filters_tab.reset_all_sliders()
             self.refresh_preview()
 
     def on_toggle_theme(self):
@@ -138,8 +140,8 @@ class MainWindow(QMainWindow):
 
     def refresh_preview(self):
         if self._showing_original:
-            if self.core.original_image:
-                self.image_view.display_image(self.core.original_image)
+            if self.core.initial_image:
+                self.image_view.display_image(self.core.initial_image)
             return
 
         if self.core.current_image:
