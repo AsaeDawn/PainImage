@@ -28,14 +28,14 @@ class ToolsTab(QWidget):
         def _do():
             res = None
             if name == "Resize Image":
-                w, ok = QInputDialog.getInt(self, "Resize", "Width:", min=1, value=800)
+                w, ok = QInputDialog.getInt(self, "Resize", "Width:", 800, 1)
                 if not ok: return
-                h, ok = QInputDialog.getInt(self, "Resize", "Height:", min=1, value=600)
+                h, ok = QInputDialog.getInt(self, "Resize", "Height:", 600, 1)
                 if not ok: return
                 res = self.core.apply_tool(name, width=w, height=h)
 
             elif name == "Compress to Size":
-                kb, ok = QInputDialog.getInt(self, "Compress", "Target KB:", min=1, value=100)
+                kb, ok = QInputDialog.getInt(self, "Compress", "Target KB:", 100, 1)
                 if not ok: return
                 res = self.core.apply_tool(name, target_kb=kb)
 
