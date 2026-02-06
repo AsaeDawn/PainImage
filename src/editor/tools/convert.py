@@ -8,5 +8,9 @@ def run(img: Image.Image, fmt: str):
     if fmt not in ["JPEG", "PNG", "WEBP"]:
         fmt = "PNG"
 
+    # If converting to JPEG, ensure we are in RGB mode (discard alpha)
+    if fmt == "JPEG" and img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    
     img.format = fmt
     return img

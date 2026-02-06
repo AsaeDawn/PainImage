@@ -26,41 +26,34 @@ class ToolsTab(QWidget):
 
     def make_tool(self, name):
         def _do():
-            # Resize dialog example expects two ints
+            res = None
             if name == "Resize Image":
                 w, ok = QInputDialog.getInt(self, "Resize", "Width:", min=1, value=800)
                 if not ok: return
                 h, ok = QInputDialog.getInt(self, "Resize", "Height:", min=1, value=600)
                 if not ok: return
-                self.core.push_history()
-                self.core.tools[name].run(self.core.current_image, w, h)
-                try:
-                    self.parent().parent().refresh_preview()
-                except: pass
+                res = self.core.apply_tool(name, width=w, height=h)
+
             elif name == "Compress to Size":
                 kb, ok = QInputDialog.getInt(self, "Compress", "Target KB:", min=1, value=100)
                 if not ok: return
-                self.core.push_history()
-                self.core.current_image = self.core.tools[name].run(self.core.current_image, kb)
-                try:
-                    self.parent().parent().refresh_preview()
-                except: pass
+                res = self.core.apply_tool(name, target_kb=kb)
+
             elif name == "Convert Format":
-                # For convert we will just set format info - actual saving will convert.
                 fmt, ok = QInputDialog.getItem(self, "Convert", "Format:", ["PNG","JPEG","WEBP"], 0, False)
                 if not ok: return
-                self.core.push_history()
-                self.core.current_image = self.core.tools[name].run(self.core.current_image, fmt)
-                try:
-                    self.parent().parent().refresh_preview()
-                except: pass
+                res = self.core.apply_tool(name, fmt=fmt)
+
             else:
                 # generic call
-                self.core.push_history()
-                res = self.core.tools[name].run(self.core.current_image)
-                if res is not None:
-                    self.core.current_image = res
+                res = self.core.apply_tool(name)
+
+            if res is not None:
                 try:
-                    self.parent().parent().refresh_preview()
-                except: pass
+                    # In main_window, SideBar is a child of MainWindow's central widget or sidebar
+                    # Usually we want to find the MainWindow or just call a refresh.
+                    # Based on existing code: self.parent().parent().refresh_preview()
+                    self.window().refresh_preview()
+                except:
+                    pass
         return _do

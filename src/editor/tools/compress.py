@@ -21,11 +21,11 @@ def run(img: Image.Image, target_kb: int) -> Image.Image:
 
         if size <= target_bytes:
             buffer.seek(0)
-            return Image.open(buffer)
+            return Image.open(buffer).copy()
 
         quality -= step
 
     buffer = io.BytesIO()
     img.save(buffer, format=img_format, quality=10)
     buffer.seek(0)
-    return Image.open(buffer)
+    return Image.open(buffer).copy()

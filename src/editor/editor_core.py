@@ -148,6 +148,24 @@ class EditorCore:
         self.current_image = self.original_image.copy()
         return True
 
+    def apply_tool(self, name, **kwargs):
+        """Apply a tool to the current image and update state."""
+        if name not in self.tools or self.original_image is None:
+            return None
+
+        # Tools are destructive to the current workflow state (they push history)
+        self.push_history()
+
+        module = self.tools[name]
+        result = module.run(self.current_image.copy(), **kwargs)
+
+        if result is not None:
+            self.original_image = result.copy()
+            self.current_image = self.original_image.copy()
+            return self.current_image
+        
+        return None
+
     def push_history(self, slider_state=None):
         if self.original_image:
             # Store image and the state of sliders *at that moment*
