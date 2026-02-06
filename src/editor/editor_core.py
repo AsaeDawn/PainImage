@@ -37,6 +37,7 @@ class EditorCore:
     def load_image(self, path):
         img = Image.open(path).convert("RGB")
 
+        self.current_path = path             # STORE CURRENT PATH
         self.initial_image = img.copy()       # Store true original
         self.original_image = img.copy()
         self.current_image = img.copy()
@@ -45,6 +46,40 @@ class EditorCore:
         self.redo_stack.clear()
         # Default state: no slider adjustments
         self._initial_slider_state = {} 
+        self._last_size_kb = 0
+
+    def save_auto(self):
+        """
+        Automatically save the current image to the original directory 
+        with '_edited' suffix and appropriate extension.
+        """
+        if not self.current_image or not getattr(self, "current_path", None):
+            return None
+
+        # Get the current estimated format
+        info = self.get_image_info(estimate_size=False)
+        fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
+        ext = f".{fmt.lower()}"
+        if ext == ".jpeg": ext = ".jpg"
+
+        # Construct new path
+        base, _ = os.path.splitext(self.current_path)
+        new_path = f"{base}_edited{ext}"
+
+        # Save using the same logic as get_image_info for consistency
+        try:
+            # We use quality=90 for consistency with estimation logic
+            if fmt == "JPEG":
+                self.current_image.save(new_path, format="JPEG", quality=90)
+            else:
+                self.current_image.save(new_path, format=fmt)
+            
+            # Update path if we want the "new" file to be the basis for further edits?
+            # User said "just save it", so maybe we don't update current_path.
+            return new_path
+        except Exception as e:
+            print(f"Auto-save failed: {e}")
+            return None
 
     # -------------------------
     # Filter Loader
@@ -265,7 +300,10 @@ class EditorCore:
                 import io
                 buffer = io.BytesIO()
                 fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
-                self.current_image.save(buffer, format=fmt)
+                if fmt == "JPEG":
+                    self.current_image.save(buffer, format="JPEG", quality=90)
+                else:
+                    self.current_image.save(buffer, format=fmt)
                 info["size_kb"] = buffer.getbuffer().nbytes // 1024
                 self._last_size_kb = info["size_kb"]
             except:

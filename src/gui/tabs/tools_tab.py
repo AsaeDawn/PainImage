@@ -1,4 +1,33 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QScrollArea, QWidget, QSizePolicy, QInputDialog
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QPushButton, QScrollArea, 
+    QSizePolicy, QInputDialog, QDialog, QFormLayout, 
+    QSpinBox, QDialogButtonBox
+)
+
+class ResizeDialog(QDialog):
+    def __init__(self, width, height, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Resize Image")
+        layout = QFormLayout(self)
+
+        self.width_spin = QSpinBox()
+        self.width_spin.setRange(1, 10000)
+        self.width_spin.setValue(width)
+        
+        self.height_spin = QSpinBox()
+        self.height_spin.setRange(1, 10000)
+        self.height_spin.setValue(height)
+
+        layout.addRow("Width:", self.width_spin)
+        layout.addRow("Height:", self.height_spin)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_values(self):
+        return self.width_spin.value(), self.height_spin.value()
 
 class ToolsTab(QWidget):
     def __init__(self, core, parent=None):
@@ -28,11 +57,15 @@ class ToolsTab(QWidget):
         def _do():
             res = None
             if name == "Resize Image":
-                w, ok = QInputDialog.getInt(self, "Resize", "Width:", 800, 1)
-                if not ok: return
-                h, ok = QInputDialog.getInt(self, "Resize", "Height:", 600, 1)
-                if not ok: return
-                res = self.core.apply_tool(name, width=w, height=h)
+                # Get current resolution for defaults
+                info = self.core.get_image_info()
+                curr_w = info["width"] if info else 800
+                curr_h = info["height"] if info else 600
+                
+                dlg = ResizeDialog(curr_w, curr_h, self)
+                if dlg.exec() == QDialog.Accepted:
+                    w, h = dlg.get_values()
+                    res = self.core.apply_tool(name, width=w, height=h)
 
             elif name == "Compress to Size":
                 kb, ok = QInputDialog.getInt(self, "Compress", "Target KB:", 100, 1)
@@ -43,6 +76,13 @@ class ToolsTab(QWidget):
                 fmt, ok = QInputDialog.getItem(self, "Convert", "Format:", ["PNG","JPEG","WEBP"], 0, False)
                 if not ok: return
                 res = self.core.apply_tool(name, fmt=fmt)
+                if res:
+                    # Automatically save in original directory
+                    saved_path = self.core.save_auto()
+                    if saved_path:
+                        try:
+                            self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
+                        except: pass
 
             else:
                 # generic call
@@ -50,9 +90,6 @@ class ToolsTab(QWidget):
 
             if res is not None:
                 try:
-                    # In main_window, SideBar is a child of MainWindow's central widget or sidebar
-                    # Usually we want to find the MainWindow or just call a refresh.
-                    # Based on existing code: self.parent().parent().refresh_preview()
                     self.window().refresh_preview(estimate_size=True)
                 except:
                     pass
