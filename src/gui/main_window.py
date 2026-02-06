@@ -7,6 +7,23 @@ from gui.image_view import ImageView
 from gui.sidebar import SideBar
 from gui.styles import DARK_STYLE, LIGHT_STYLE
 
+class TaskWorker(QThread):
+    finished = Signal(object)
+    error = Signal(str)
+
+    def __init__(self, func, *args, **kwargs):
+        super().__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self):
+        try:
+            result = self.func(*self.args, **self.kwargs)
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
 class UpscaleWorker(QThread):
     finished = Signal(object)
     error = Signal(str)
@@ -125,16 +142,30 @@ class MainWindow(QMainWindow):
         self.refresh_preview()
 
     def on_undo(self):
-        slider_state = self.core.undo(self.sidebar.filters_tab.slider_values)
-        if slider_state is not None:
-            self.sidebar.filters_tab.set_slider_state(slider_state)
-            self.refresh_preview()
+        def _on_undo_finished(slider_state):
+            if slider_state is not None:
+                self.sidebar.filters_tab.set_slider_state(slider_state)
+                self.refresh_preview()
+
+        self.run_background_task(
+            self.core.undo,
+            kwargs={"current_slider_state": self.sidebar.filters_tab.slider_values},
+            on_finished=_on_undo_finished,
+            msg="Undoing..."
+        )
 
     def on_redo(self):
-        slider_state = self.core.redo(self.sidebar.filters_tab.slider_values)
-        if slider_state is not None:
-            self.sidebar.filters_tab.set_slider_state(slider_state)
-            self.refresh_preview()
+        def _on_redo_finished(slider_state):
+            if slider_state is not None:
+                self.sidebar.filters_tab.set_slider_state(slider_state)
+                self.refresh_preview()
+
+        self.run_background_task(
+            self.core.redo,
+            kwargs={"current_slider_state": self.sidebar.filters_tab.slider_values},
+            on_finished=_on_redo_finished,
+            msg="Redoing..."
+        )
 
     def on_toggle_theme(self):
         self._dark = not self._dark
@@ -185,5 +216,35 @@ class MainWindow(QMainWindow):
         self.topbar.setEnabled(True)
         self.sidebar.setEnabled(True)
         self.statusBar().showMessage(f"Upscaling error: {message}", 5000)
+
+    # ---------- Background Tasks ----------
+    def run_background_task(self, func, on_finished=None, args=None, kwargs=None, msg="Processing..."):
+        """Run a core function in a background thread."""
+        self.statusBar().showMessage(msg)
+        self.topbar.setEnabled(False)
+        self.sidebar.setEnabled(False)
+
+        args = args or []
+        kwargs = kwargs or {}
+        
+        self.task_worker = TaskWorker(func, *args, **kwargs)
+        
+        def _finished(result):
+            self.topbar.setEnabled(True)
+            self.sidebar.setEnabled(True)
+            if on_finished:
+                on_finished(result)
+            else:
+                self.refresh_preview(estimate_size=True)
+            self.statusBar().showMessage("Done!", 3000)
+
+        def _error(err):
+            self.topbar.setEnabled(True)
+            self.sidebar.setEnabled(True)
+            self.statusBar().showMessage(f"Error: {err}", 5000)
+
+        self.task_worker.finished.connect(_finished)
+        self.task_worker.error.connect(_error)
+        self.task_worker.start()
 
 

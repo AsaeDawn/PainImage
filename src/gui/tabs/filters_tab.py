@@ -80,15 +80,17 @@ class FiltersTab(QWidget):
 
     # -------------------------
     def apply_simple_filter(self, name):
-        # Save current state (including current sliders) before applying destructive filter
-        self.core.push_history(self.slider_values)
-        self.core.apply_filter(name)
-        # Apply current sliders ON TOP of the new filtered image
-        self.apply_combined_filters()
-        try:
+        # Background task for destructive filter
+        def _on_finished(ok):
+            self.apply_combined_filters()
             self.window().refresh_preview(estimate_size=True)
-        except:
-            pass
+
+        self.window().run_background_task(
+            self.core.apply_filter,
+            args=[name],
+            on_finished=_on_finished,
+            msg=f"Applying {name}..."
+        )
 
     def capture_before_move(self):
         """Store the current positions before a new adjustment starts."""
@@ -100,10 +102,18 @@ class FiltersTab(QWidget):
             self.core.push_history(self.slider_state_before_move)
 
     def on_slider_released(self):
-        """Handle slider release: commit to history and trigger a full UI refresh with size calculation."""
-        self.commit_to_history()
+        """Handle slider release: apply filters to full-res image and save to history."""
+        # Calculate filter list
+        filter_list = []
+        for name, value in self.slider_values.items():
+            if value != 50:
+                delta = (value - 50) * 2
+                filter_list.append((name, {"delta": delta}))
+        
+        # Commit to full resolution
+        self.core.commit_preview(filter_list)
+        
         try:
-            # Trigger a full refresh that includes the expensive size estimation
             self.window().refresh_preview(estimate_size=True)
         except:
             pass

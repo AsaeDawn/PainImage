@@ -29,10 +29,26 @@ class ImageView(QWidget):
         layout.addWidget(self.img_label, 1)
 
     def display_image(self, pil_img):
-        """Set displayed image from PIL image."""
+        """Set displayed image from PIL image, optimizing by scaling before QPixmap conversion."""
         self._current_pil = pil_img
-        pix = pil_image_to_qpixmap(pil_img)
-        self.img_label.setPixmap(pix.scaled(self.img_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
+        # Calculate target size while keeping aspect ratio
+        w, h = pil_img.size
+        label_w = self.img_label.width()
+        label_h = self.img_label.height()
+        
+        if label_w > 0 and label_h > 0:
+            scale = min(label_w / w, label_h / h)
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            
+            # Scale PIL image first (much faster than scaling QPixmap)
+            display_pil = pil_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
+            pix = pil_image_to_qpixmap(display_pil)
+        else:
+            pix = pil_image_to_qpixmap(pil_img)
+
+        self.img_label.setPixmap(pix)
         self.img_label.show()
         self.placeholder.hide()
 

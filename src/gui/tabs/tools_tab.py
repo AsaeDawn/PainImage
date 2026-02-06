@@ -55,7 +55,6 @@ class ToolsTab(QWidget):
 
     def make_tool(self, name):
         def _do():
-            res = None
             if name == "Resize Image":
                 # Get current resolution for defaults
                 info = self.core.get_image_info()
@@ -65,32 +64,50 @@ class ToolsTab(QWidget):
                 dlg = ResizeDialog(curr_w, curr_h, self)
                 if dlg.exec() == QDialog.Accepted:
                     w, h = dlg.get_values()
-                    res = self.core.apply_tool(name, width=w, height=h)
+                    self.window().run_background_task(
+                        self.core.apply_tool, 
+                        args=[name], 
+                        kwargs={"width": w, "height": h},
+                        msg=f"Resizing to {w}x{h}..."
+                    )
 
             elif name == "Compress to Size":
                 kb, ok = QInputDialog.getInt(self, "Compress", "Target KB:", 100, 1)
                 if not ok: return
-                res = self.core.apply_tool(name, target_kb=kb)
+                self.window().run_background_task(
+                    self.core.apply_tool,
+                    args=[name],
+                    kwargs={"target_kb": kb},
+                    msg=f"Compressing to {kb} KB..."
+                )
 
             elif name == "Convert Format":
                 fmt, ok = QInputDialog.getItem(self, "Convert", "Format:", ["PNG","JPEG","WEBP"], 0, False)
                 if not ok: return
-                res = self.core.apply_tool(name, fmt=fmt)
-                if res:
-                    # Automatically save in original directory
-                    saved_path = self.core.save_auto()
-                    if saved_path:
-                        try:
-                            self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
-                        except: pass
+                
+                def _on_convert_finished(res):
+                    if res:
+                        # Automatically save in original directory
+                        saved_path = self.core.save_auto()
+                        if saved_path:
+                            try:
+                                self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
+                            except: pass
+                        self.window().refresh_preview(estimate_size=True)
+
+                self.window().run_background_task(
+                    self.core.apply_tool,
+                    args=[name],
+                    kwargs={"fmt": fmt},
+                    on_finished=_on_convert_finished,
+                    msg=f"Converting to {fmt}..."
+                )
 
             else:
-                # generic call
-                res = self.core.apply_tool(name)
-
-            if res is not None:
-                try:
-                    self.window().refresh_preview(estimate_size=True)
-                except:
-                    pass
+                # generic tool call
+                self.window().run_background_task(
+                    self.core.apply_tool,
+                    args=[name],
+                    msg=f"Applying tool: {name}..."
+                )
         return _do
