@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QFileDialog
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
+from PIL import Image
 from utils.image_utils import pil_image_to_qpixmap
 
 class ImageView(QWidget):
