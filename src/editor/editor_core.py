@@ -30,12 +30,18 @@ class EditorCore:
         self.preview_base_image = None
         self.in_preview = False
         self._last_size_kb = 0
+        self.current_format = "PNG"         # DEFAULT FORMAT
 
     # -------------------------
     # Load image
     # -------------------------
     def load_image(self, path):
-        img = Image.open(path).convert("RGB")
+        raw_img = Image.open(path)
+        # Capture the original format before conversion
+        self.current_format = raw_img.format if raw_img.format else "PNG"
+        if self.current_format == "MPO": self.current_format = "JPEG" # Handle MPO (3D JPEG)
+        
+        img = raw_img.convert("RGB")
 
         self.current_path = path             # STORE CURRENT PATH
         self.initial_image = img.copy()       # Store true original
@@ -56,9 +62,8 @@ class EditorCore:
         if not self.current_image or not getattr(self, "current_path", None):
             return None
 
-        # Get the current estimated format
-        info = self.get_image_info(estimate_size=False)
-        fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
+        # Use the tracked format
+        fmt = self.current_format if self.current_format in ["JPEG", "PNG", "WEBP"] else "PNG"
         ext = f".{fmt.lower()}"
         if ext == ".jpeg": ext = ".jpg"
 
@@ -74,8 +79,6 @@ class EditorCore:
             else:
                 self.current_image.save(new_path, format=fmt)
             
-            # Update path if we want the "new" file to be the basis for further edits?
-            # User said "just save it", so maybe we don't update current_path.
             return new_path
         except Exception as e:
             print(f"Auto-save failed: {e}")
@@ -196,6 +199,10 @@ class EditorCore:
         result = module.run(self.current_image.copy(), **kwargs)
 
         if result is not None:
+            # Capture the format if the tool set it (primarily for Convert)
+            if hasattr(result, "format") and result.format:
+                self.current_format = result.format
+                
             self.original_image = result.copy()
             self.current_image = self.original_image.copy()
             return self.current_image
@@ -289,7 +296,7 @@ class EditorCore:
         info = {
             "width": self.current_image.width,
             "height": self.current_image.height,
-            "format": getattr(self.current_image, "format", "RAW"),
+            "format": self.current_format,
             "mode": self.current_image.mode,
             "size_kb": getattr(self, "_last_size_kb", 0)
         }
