@@ -29,13 +29,21 @@ class EditorCore:
         self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
         self.preview_base_image = None
         self.in_preview = False
+        self._last_size_kb = 0
+        self.current_format = "PNG"         # DEFAULT FORMAT
 
     # -------------------------
     # Load image
     # -------------------------
     def load_image(self, path):
-        img = Image.open(path).convert("RGB")
+        raw_img = Image.open(path)
+        # Capture the original format before conversion
+        self.current_format = raw_img.format if raw_img.format else "PNG"
+        if self.current_format == "MPO": self.current_format = "JPEG" # Handle MPO (3D JPEG)
+        
+        img = raw_img.convert("RGB")
 
+        self.current_path = path             # STORE CURRENT PATH
         self.initial_image = img.copy()       # Store true original
         self.original_image = img.copy()
         self.current_image = img.copy()
@@ -44,6 +52,37 @@ class EditorCore:
         self.redo_stack.clear()
         # Default state: no slider adjustments
         self._initial_slider_state = {} 
+        self._last_size_kb = 0
+
+    def save_auto(self):
+        """
+        Automatically save the current image to the original directory 
+        with '_edited' suffix and appropriate extension.
+        """
+        if not self.current_image or not getattr(self, "current_path", None):
+            return None
+
+        # Use the tracked format
+        fmt = self.current_format if self.current_format in ["JPEG", "PNG", "WEBP"] else "PNG"
+        ext = f".{fmt.lower()}"
+        if ext == ".jpeg": ext = ".jpg"
+
+        # Construct new path
+        base, _ = os.path.splitext(self.current_path)
+        new_path = f"{base}_edited{ext}"
+
+        # Save using the same logic as get_image_info for consistency
+        try:
+            # We use quality=90 for consistency with estimation logic
+            if fmt == "JPEG":
+                self.current_image.save(new_path, format="JPEG", quality=90)
+            else:
+                self.current_image.save(new_path, format=fmt)
+            
+            return new_path
+        except Exception as e:
+            print(f"Auto-save failed: {e}")
+            return None
 
     # -------------------------
     # Filter Loader
@@ -148,6 +187,28 @@ class EditorCore:
         self.current_image = self.original_image.copy()
         return True
 
+    def apply_tool(self, name, **kwargs):
+        """Apply a tool to the current image and update state."""
+        if name not in self.tools or self.original_image is None:
+            return None
+
+        # Tools are destructive to the current workflow state (they push history)
+        self.push_history()
+
+        module = self.tools[name]
+        result = module.run(self.current_image.copy(), **kwargs)
+
+        if result is not None:
+            # Capture the format if the tool set it (primarily for Convert)
+            if hasattr(result, "format") and result.format:
+                self.current_format = result.format
+                
+            self.original_image = result.copy()
+            self.current_image = self.original_image.copy()
+            return self.current_image
+        
+        return None
+
     def push_history(self, slider_state=None):
         if self.original_image:
             # Store image and the state of sliders *at that moment*
@@ -226,3 +287,33 @@ class EditorCore:
         self.current_image = image.copy()
 
         return slider_state
+
+    def get_image_info(self, estimate_size=False):
+        """Return basic info about the current image."""
+        if self.current_image is None:
+            return None
+        
+        info = {
+            "width": self.current_image.width,
+            "height": self.current_image.height,
+            "format": self.current_format,
+            "mode": self.current_image.mode,
+            "size_kb": getattr(self, "_last_size_kb", 0)
+        }
+
+        if estimate_size:
+            # Estimate size if possible - EXPENSIVE OPERATION
+            try:
+                import io
+                buffer = io.BytesIO()
+                fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
+                if fmt == "JPEG":
+                    self.current_image.save(buffer, format="JPEG", quality=90)
+                else:
+                    self.current_image.save(buffer, format=fmt)
+                info["size_kb"] = buffer.getbuffer().nbytes // 1024
+                self._last_size_kb = info["size_kb"]
+            except:
+                pass
+            
+        return info

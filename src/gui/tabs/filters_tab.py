@@ -59,8 +59,8 @@ class FiltersTab(QWidget):
                 
                 # Undo tracking: capture state BEFORE move starts
                 slider.sliderPressed.connect(self.capture_before_move)
-                # Auto-save history when slider is released
-                slider.sliderReleased.connect(self.commit_to_history)
+                # Auto-save history when slider is released + trigger full preview update (with size)
+                slider.sliderReleased.connect(self.on_slider_released)
 
                 self.vbox.addWidget(slider)
                 self.slider_widgets[name] = slider
@@ -85,6 +85,10 @@ class FiltersTab(QWidget):
         self.core.apply_filter(name)
         # Apply current sliders ON TOP of the new filtered image
         self.apply_combined_filters()
+        try:
+            self.window().refresh_preview(estimate_size=True)
+        except:
+            pass
 
     def capture_before_move(self):
         """Store the current positions before a new adjustment starts."""
@@ -94,6 +98,15 @@ class FiltersTab(QWidget):
         """Save history only if values actually changed."""
         if self.slider_values != self.slider_state_before_move:
             self.core.push_history(self.slider_state_before_move)
+
+    def on_slider_released(self):
+        """Handle slider release: commit to history and trigger a full UI refresh with size calculation."""
+        self.commit_to_history()
+        try:
+            # Trigger a full refresh that includes the expensive size estimation
+            self.window().refresh_preview(estimate_size=True)
+        except:
+            pass
 
     def on_slider_changed(self, name, value):
         self.slider_values[name] = value
