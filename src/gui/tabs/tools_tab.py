@@ -33,7 +33,7 @@ class ToolsTab(QWidget):
                 h, ok = QInputDialog.getInt(self, "Resize", "Height:", min=1, value=600)
                 if not ok: return
                 self.core.push_history()
-                self.core.tools[name](self.core.current_image, w, h)
+                self.core.tools[name].run(self.core.current_image, w, h)
                 try:
                     self.parent().parent().refresh_preview()
                 except: pass
@@ -41,7 +41,7 @@ class ToolsTab(QWidget):
                 kb, ok = QInputDialog.getInt(self, "Compress", "Target KB:", min=1, value=100)
                 if not ok: return
                 self.core.push_history()
-                self.core.current_image = self.core.tools[name](self.core.current_image, kb)
+                self.core.current_image = self.core.tools[name].run(self.core.current_image, kb)
                 try:
                     self.parent().parent().refresh_preview()
                 except: pass
@@ -50,14 +50,14 @@ class ToolsTab(QWidget):
                 fmt, ok = QInputDialog.getItem(self, "Convert", "Format:", ["PNG","JPEG","WEBP"], 0, False)
                 if not ok: return
                 self.core.push_history()
-                self.core.current_image = self.core.tools[name](self.core.current_image, fmt)
+                self.core.current_image = self.core.tools[name].run(self.core.current_image, fmt)
                 try:
                     self.parent().parent().refresh_preview()
                 except: pass
             else:
                 # generic call
                 self.core.push_history()
-                res = self.core.tools[name](self.core.current_image)
+                res = self.core.tools[name].run(self.core.current_image)
                 if res is not None:
                     self.core.current_image = res
                 try:

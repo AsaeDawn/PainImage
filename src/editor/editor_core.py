@@ -15,10 +15,8 @@ def resource_path(relative_path):
 
 class EditorCore:
 
-    def __init__(self):
-        self.original_image = None          # LAST COMMITTED IMAGE
-        self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
-
+    def __init__(self, max_history=15):
+        self.max_history = max_history
         self.history = []
         self.redo_stack = []
 
@@ -26,6 +24,9 @@ class EditorCore:
         self.tools = self.load_tools()
         self.ai_features = self.load_ai_features()
 
+        self.initial_image = None           # TRUE ORIGINAL (UNEDITED)
+        self.original_image = None          # LAST COMMITTED IMAGE (BASE FOR SLIDERS)
+        self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
         self.preview_base_image = None
         self.in_preview = False
 
@@ -35,29 +36,38 @@ class EditorCore:
     def load_image(self, path):
         img = Image.open(path).convert("RGB")
 
+        self.initial_image = img.copy()       # Store true original
         self.original_image = img.copy()
         self.current_image = img.copy()
 
         self.history.clear()
         self.redo_stack.clear()
+        # Default state: no slider adjustments
+        self._initial_slider_state = {} 
 
     # -------------------------
     # Filter Loader
     # -------------------------
     def load_filters(self):
         filters = {}
-        filters_path = resource_path("editor/filters")
+        filters_path = os.path.join(os.path.dirname(__file__), "filters")
 
         if not os.path.exists(filters_path):
-            return filters
+            # fallback to resource_path for frozen apps
+            filters_path = resource_path("editor/filters")
+            if not os.path.exists(filters_path):
+                return filters
 
         for file in os.listdir(filters_path):
             if file.endswith(".py") and file != "__init__.py":
-                module_name = f"editor.filters.{file[:-3]}"
-                module = importlib.import_module(module_name)
+                try:
+                    module_name = f"editor.filters.{file[:-3]}"
+                    module = importlib.import_module(module_name)
 
-                filter_name = getattr(module, "FILTER_NAME", file[:-3])
-                filters[filter_name] = module
+                    filter_name = getattr(module, "FILTER_NAME", file[:-3])
+                    filters[filter_name] = module
+                except Exception as e:
+                    print(f"Error loading filter {file}: {e}")
 
         return filters
 
@@ -66,18 +76,24 @@ class EditorCore:
     # -------------------------
     def load_tools(self):
         tools = {}
-        tools_path = resource_path("editor/tools")
+        tools_path = os.path.join(os.path.dirname(__file__), "tools")
 
         if not os.path.exists(tools_path):
-            return tools
+            # fallback
+            tools_path = resource_path("editor/tools")
+            if not os.path.exists(tools_path):
+                return tools
 
         for file in os.listdir(tools_path):
             if file.endswith(".py") and file != "__init__.py":
-                module_name = f"editor.tools.{file[:-3]}"
-                module = importlib.import_module(module_name)
+                try:
+                    module_name = f"editor.tools.{file[:-3]}"
+                    module = importlib.import_module(module_name)
 
-                tool_name = getattr(module, "TOOL_NAME", file[:-3])
-                tools[tool_name] = module
+                    tool_name = getattr(module, "TOOL_NAME", file[:-3])
+                    tools[tool_name] = module
+                except Exception as e:
+                    print(f"Error loading tool {file}: {e}")
 
         return tools
 
@@ -86,26 +102,32 @@ class EditorCore:
     # -------------------------
     def load_ai_features(self):
         features = {}
-        ai_path = resource_path("editor/ai_features")
+        ai_path = os.path.join(os.path.dirname(__file__), "ai_features")
 
         if not os.path.exists(ai_path):
-            return features
+            # fallback
+            ai_path = resource_path("editor/ai_features")
+            if not os.path.exists(ai_path):
+                return features
 
         for folder in os.listdir(ai_path):
-            dir_path = os.path.join(ai_path, folder)
-            if not os.path.isdir(dir_path):
-                continue
+            try:
+                dir_path = os.path.join(ai_path, folder)
+                if not os.path.isdir(dir_path):
+                    continue
 
-            feature_file = os.path.join(dir_path, "feature.py")
-            if not os.path.exists(feature_file):
-                continue
+                feature_file = os.path.join(dir_path, "feature.py")
+                if not os.path.exists(feature_file):
+                    continue
 
-            module_name = f"editor.ai_features.{folder}.feature"
-            module = importlib.import_module(module_name)
+                module_name = f"editor.ai_features.{folder}.feature"
+                module = importlib.import_module(module_name)
 
-            name = getattr(module, "AI_NAME", folder)
-            cls = getattr(module, "AI_CLASS")
-            features[name] = cls()
+                name = getattr(module, "AI_NAME", folder)
+                cls = getattr(module, "AI_CLASS")
+                features[name] = cls()
+            except Exception as e:
+                print(f"Error loading AI feature {folder}: {e}")
 
         return features
 
@@ -115,10 +137,6 @@ class EditorCore:
     def apply_filter(self, name, **kwargs):
         if name not in self.filters or self.original_image is None:
             return False
-
-        # save state
-        self.history.append(self.original_image.copy())
-        self.redo_stack.clear()
 
         module = self.filters[name]
 
@@ -130,57 +148,81 @@ class EditorCore:
         self.current_image = self.original_image.copy()
         return True
 
+    def push_history(self, slider_state=None):
+        if self.original_image:
+            # Store image and the state of sliders *at that moment*
+            state = (self.original_image.copy(), slider_state.copy() if slider_state else {})
+            self.history.append(state)
+            if len(self.history) > self.max_history:
+                self.history.pop(0)
+            self.redo_stack.clear()
+
     # =====================================================
     # PREVIEW (SLIDERS – NON DESTRUCTIVE)
     # =====================================================
-    def begin_preview(self):
-        if self.original_image:
-            # Always preview from last committed base
-            self.preview_base_image = self.original_image.copy()
-            self.in_preview = True
-
-
     def apply_preview_filter(self, name, **kwargs):
-        if not self.in_preview or self.preview_base_image is None:
+        """Single preview filter application."""
+        if not self.in_preview or self.original_image is None:
             return False
 
         module = self.filters[name]
-        self.current_image = module.run(self.preview_base_image, **kwargs)
+        self.current_image = module.run(self.original_image, **kwargs)
         return True
 
-def commit_preview(self):
-    if not self.in_preview:
-        return False
+    def apply_preview_filters(self, filter_list):
+        """Apply multiple preview filters in a chain starting from original_image."""
+        if not self.in_preview or self.original_image is None:
+            return False
+            
+        img = self.original_image.copy()
+        for name, kwargs in filter_list:
+            if name in self.filters:
+                img = self.filters[name].run(img, **kwargs)
+        
+        self.current_image = img
+        return True
 
-    # save ORIGINAL base, not preview result
-    self.history.append(self.original_image.copy())
-    self.redo_stack.clear()
+    def commit_preview(self):
+        """Permanently apply current preview state to history."""
+        if not self.in_preview or self.current_image is None:
+            return False
 
-    # commit preview result as new base
-    self.original_image = self.current_image.copy()
-
-    self.preview_base_image = None
-    self.in_preview = False
-    return True
-
+        self.push_history()
+        self.original_image = self.current_image.copy()
+        # Preview stays active but base defaults to new original if we wanted, 
+        # but for simple sliders we usually stop preview after commit.
+        self.in_preview = False
+        return True
 
     # -------------------------
     # Undo / Redo
     # -------------------------
-    def undo(self):
+    def undo(self, current_slider_state=None):
         if not self.history:
-            return False
+            return None
 
-        self.redo_stack.append(self.original_image.copy())
-        self.original_image = self.history.pop()
-        self.current_image = self.original_image.copy()
-        return True
+        # Save current state to redo stack before moving back
+        current_state = (self.original_image.copy(), current_slider_state.copy() if current_slider_state else {})
+        self.redo_stack.append(current_state)
 
-    def redo(self):
+        # Restore previous state
+        image, slider_state = self.history.pop()
+        self.original_image = image.copy()
+        self.current_image = image.copy()
+
+        return slider_state
+
+    def redo(self, current_slider_state=None):
         if not self.redo_stack:
-            return False
+            return None
 
-        self.history.append(self.original_image.copy())
-        self.original_image = self.redo_stack.pop()
-        self.current_image = self.original_image.copy()
-        return True
+        # Save current state to history before moving forward
+        current_state = (self.original_image.copy(), current_slider_state.copy() if current_slider_state else {})
+        self.history.append(current_state)
+
+        # Restore next state
+        image, slider_state = self.redo_stack.pop()
+        self.original_image = image.copy()
+        self.current_image = image.copy()
+
+        return slider_state

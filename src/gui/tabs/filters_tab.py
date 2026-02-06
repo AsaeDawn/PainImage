@@ -24,39 +24,46 @@ class FiltersTab(QWidget):
         scroll.setWidgetResizable(True)
 
         container = QWidget()
-        vbox = QVBoxLayout(container)
-        vbox.setSpacing(10)
+        self.vbox = QVBoxLayout(container)
+        self.vbox.setSpacing(10)
+
+        # Track active slider values
+        self.slider_values = {}
+        self.slider_widgets = {}
+        self.slider_state_before_move = {}
 
         for name in sorted(self.core.filters.keys()):
             filter_obj = self.core.filters[name]
 
-            # ---------- PARAMETER (DELTA) FILTER ----------
+            # ---------- PARAMETER FILTER (e.g. Brightness, Contrast) ----------
             if getattr(filter_obj, "HAS_PARAMS", False):
+                self.slider_values[name] = 50  # default neutral
+
                 label = QLabel(name)
                 label.setStyleSheet("font-weight: bold;")
-                vbox.addWidget(label)
-
-                # expect DELTA param
-                param = filter_obj.PARAMS["delta"]
+                self.vbox.addWidget(label)
 
                 slider = QSlider(Qt.Horizontal)
-                slider.setMinimum(param["min"])
-                slider.setMaximum(param["max"])
-                slider.setValue(0)  # ALWAYS neutral
+                slider.setMinimum(0)
+                slider.setMaximum(100)
+                slider.setValue(50) 
                 slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-                # preview lifecycle
-                slider.sliderPressed.connect(self.core.begin_preview)
+                
+                # Add tick marks
+                slider.setTickPosition(QSlider.TicksBelow)
+                slider.setTickInterval(25)
 
                 slider.valueChanged.connect(
-                    lambda value, n=name: self.preview_delta_filter(n, value)
+                    lambda value, n=name: self.on_slider_changed(n, value)
                 )
+                
+                # Undo tracking: capture state BEFORE move starts
+                slider.sliderPressed.connect(self.capture_before_move)
+                # Auto-save history when slider is released
+                slider.sliderReleased.connect(self.commit_to_history)
 
-                slider.sliderReleased.connect(
-                    lambda s=slider: self.commit_delta_preview(s)
-                )
-
-                vbox.addWidget(slider)
+                self.vbox.addWidget(slider)
+                self.slider_widgets[name] = slider
 
             # ---------- SIMPLE FILTER ----------
             else:
@@ -65,24 +72,63 @@ class FiltersTab(QWidget):
                 btn.clicked.connect(
                     lambda checked=False, n=name: self.apply_simple_filter(n)
                 )
-                vbox.addWidget(btn)
+                self.vbox.addWidget(btn)
 
-        vbox.addStretch(1)
+        self.vbox.addStretch(1)
         scroll.setWidget(container)
         layout.addWidget(scroll)
 
     # -------------------------
-    # Filter handlers
-    # -------------------------
     def apply_simple_filter(self, name):
+        # Save current state (including current sliders) before applying destructive filter
+        self.core.push_history(self.slider_values)
         self.core.apply_filter(name)
+        # Apply current sliders ON TOP of the new filtered image
+        self.apply_combined_filters()
+
+    def capture_before_move(self):
+        """Store the current positions before a new adjustment starts."""
+        self.slider_state_before_move = self.slider_values.copy()
+
+    def commit_to_history(self):
+        """Save history only if values actually changed."""
+        if self.slider_values != self.slider_state_before_move:
+            self.core.push_history(self.slider_state_before_move)
+
+    def on_slider_changed(self, name, value):
+        self.slider_values[name] = value
+        self.apply_combined_filters()
+
+    def apply_combined_filters(self):
+        """Apply all active sliders to the current base image."""
+        self.core.in_preview = True # Ensure preview mode is active
+        
+        filter_list = []
+        for name, value in self.slider_values.items():
+            if value != 50:
+                delta = (value - 50) * 2
+                filter_list.append((name, {"delta": delta}))
+        
+        # If no sliders are active, just show original base
+        if not filter_list:
+            self.core.current_image = self.core.original_image.copy()
+        else:
+            self.core.apply_preview_filters(filter_list)
+        
         self.filter_applied.emit()
 
-    def preview_delta_filter(self, name, delta):
-        self.core.apply_preview_filter(name, delta=delta)
-        self.filter_applied.emit()
+    def reset_all_sliders(self):
+        self.set_slider_state({name: 50 for name in self.slider_values})
 
-    def commit_delta_preview(self, slider):
-        self.core.commit_preview()
-        slider.setValue(0)  # reset to neutral every time
-        self.filter_applied.emit()
+    def set_slider_state(self, state):
+        """Update slider positions from a dictionary without triggering new calculations."""
+        self.slider_values = state.copy()
+        
+        for name, slider in self.slider_widgets.items():
+            val = state.get(name, 50)
+            slider.blockSignals(True)
+            slider.setValue(val)
+            slider.blockSignals(False)
+        
+        # update display based on restored state
+        self.apply_combined_filters()
