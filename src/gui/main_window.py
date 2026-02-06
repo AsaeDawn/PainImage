@@ -146,10 +146,16 @@ class MainWindow(QMainWindow):
                 self.image_view.display_image(self.core.initial_image)
             return
 
-        if self.core.current_image:
-            self.image_view.display_image(self.core.current_image)
+        image = self.core.current_image
+        if image:
+            self.image_view.display_image(image)
+            info = self.core.get_image_info()
+            if info:
+                msg = f"Resolution: {info['width']}x{info['height']}  |  Approx. Size ({info['format']}): {info['size_kb']} KB"
+                self.statusBar().showMessage(msg)
         else:
             self.image_view.clear()
+            self.statusBar().clearMessage()
 
     def run_upscale_from_ai(self):
         if not self.core.current_image:

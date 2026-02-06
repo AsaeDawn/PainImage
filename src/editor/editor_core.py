@@ -244,3 +244,29 @@ class EditorCore:
         self.current_image = image.copy()
 
         return slider_state
+
+    def get_image_info(self):
+        """Return basic info about the current image."""
+        if self.current_image is None:
+            return None
+        
+        info = {
+            "width": self.current_image.width,
+            "height": self.current_image.height,
+            "format": getattr(self.current_image, "format", "RAW"),
+            "mode": self.current_image.mode,
+            "size_kb": 0
+        }
+
+        # Estimate size if possible
+        try:
+            import io
+            buffer = io.BytesIO()
+            # Default to PNG for estimation of modern lossless size unless we have a specific format
+            fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
+            self.current_image.save(buffer, format=fmt)
+            info["size_kb"] = buffer.getbuffer().nbytes // 1024
+        except:
+            pass
+            
+        return info
