@@ -140,7 +140,7 @@ class MainWindow(QMainWindow):
         self._dark = not self._dark
         self.apply_theme()
 
-    def refresh_preview(self):
+    def refresh_preview(self, estimate_size=False):
         if self._showing_original:
             if self.core.initial_image:
                 self.image_view.display_image(self.core.initial_image)
@@ -149,7 +149,7 @@ class MainWindow(QMainWindow):
         image = self.core.current_image
         if image:
             self.image_view.display_image(image)
-            info = self.core.get_image_info()
+            info = self.core.get_image_info(estimate_size=estimate_size)
             if info:
                 msg = f"Resolution: {info['width']}x{info['height']}  |  Approx. Size ({info['format']}): {info['size_kb']} KB"
                 self.statusBar().showMessage(msg)

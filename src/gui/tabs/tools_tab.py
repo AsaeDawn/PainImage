@@ -53,7 +53,7 @@ class ToolsTab(QWidget):
                     # In main_window, SideBar is a child of MainWindow's central widget or sidebar
                     # Usually we want to find the MainWindow or just call a refresh.
                     # Based on existing code: self.parent().parent().refresh_preview()
-                    self.window().refresh_preview()
+                    self.window().refresh_preview(estimate_size=True)
                 except:
                     pass
         return _do

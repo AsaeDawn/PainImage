@@ -29,6 +29,7 @@ class EditorCore:
         self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
         self.preview_base_image = None
         self.in_preview = False
+        self._last_size_kb = 0
 
     # -------------------------
     # Load image
@@ -245,7 +246,7 @@ class EditorCore:
 
         return slider_state
 
-    def get_image_info(self):
+    def get_image_info(self, estimate_size=False):
         """Return basic info about the current image."""
         if self.current_image is None:
             return None
@@ -255,18 +256,19 @@ class EditorCore:
             "height": self.current_image.height,
             "format": getattr(self.current_image, "format", "RAW"),
             "mode": self.current_image.mode,
-            "size_kb": 0
+            "size_kb": getattr(self, "_last_size_kb", 0)
         }
 
-        # Estimate size if possible
-        try:
-            import io
-            buffer = io.BytesIO()
-            # Default to PNG for estimation of modern lossless size unless we have a specific format
-            fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
-            self.current_image.save(buffer, format=fmt)
-            info["size_kb"] = buffer.getbuffer().nbytes // 1024
-        except:
-            pass
+        if estimate_size:
+            # Estimate size if possible - EXPENSIVE OPERATION
+            try:
+                import io
+                buffer = io.BytesIO()
+                fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
+                self.current_image.save(buffer, format=fmt)
+                info["size_kb"] = buffer.getbuffer().nbytes // 1024
+                self._last_size_kb = info["size_kb"]
+            except:
+                pass
             
         return info
