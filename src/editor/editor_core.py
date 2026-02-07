@@ -299,7 +299,7 @@ class EditorCore:
         self.current_image = img
         return True
 
-    def commit_preview(self, filter_list=None):
+    def commit_preview(self, filter_list=None, slider_state=None):
         """Permanently apply current preview state to history."""
         if not self.in_preview or self.original_image is None:
             return False
@@ -310,10 +310,10 @@ class EditorCore:
             for name, kwargs in filter_list:
                 if name in self.filters:
                     img = self.filters[name].run(img, **kwargs)
-            self.push_history()
+            self.push_history(slider_state)
             self.original_image = img
         else:
-            self.push_history()
+            self.push_history(slider_state)
             self.original_image = self.current_image.copy()
 
         self.current_image = self.original_image.copy()

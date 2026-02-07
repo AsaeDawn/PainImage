@@ -85,6 +85,14 @@ class FiltersTab(QWidget):
             self.apply_combined_filters()
             self.window().refresh_preview(estimate_size=True)
 
+        # Before applying a new simple filter, we MUST bake the current sliders 
+        # so the simple filter applies on top of the preview state.
+        active_filters = self.get_active_filters()
+        if active_filters:
+            # Bake on full res and clear sliders
+            self.core.commit_preview(active_filters, self.slider_values)
+            self.reset_all_sliders()
+
         self.window().run_background_task(
             self.core.apply_filter,
             args=[name],
@@ -96,22 +104,19 @@ class FiltersTab(QWidget):
         """Store the current positions before a new adjustment starts."""
         self.slider_state_before_move = self.slider_values.copy()
 
-    def commit_to_history(self):
-        """Save history only if values actually changed."""
-        if self.slider_values != self.slider_state_before_move:
-            self.core.push_history(self.slider_state_before_move)
 
-    def on_slider_released(self):
-        """Handle slider release: apply filters to full-res image and save to history."""
-        # Calculate filter list
+    def get_active_filters(self):
+        """Build the list of active filters with their current slider values."""
         filter_list = []
         for name, value in self.slider_values.items():
             if value != 50:
                 delta = (value - 50) * 2
                 filter_list.append((name, {"delta": delta}))
-        
-        # Commit to full resolution
-        self.core.commit_preview(filter_list)
+        return filter_list
+
+    def on_slider_released(self):
+        """Handle slider release: save state to history without 'baking' into base."""
+        self.core.push_history(self.slider_values)
         
         try:
             self.window().refresh_preview(estimate_size=True)
@@ -126,11 +131,7 @@ class FiltersTab(QWidget):
         """Apply all active sliders to the current base image."""
         self.core.in_preview = True # Ensure preview mode is active
         
-        filter_list = []
-        for name, value in self.slider_values.items():
-            if value != 50:
-                delta = (value - 50) * 2
-                filter_list.append((name, {"delta": delta}))
+        filter_list = self.get_active_filters()
         
         # If no sliders are active, just show original base
         if not filter_list:
