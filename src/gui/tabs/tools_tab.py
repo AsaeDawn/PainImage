@@ -93,7 +93,7 @@ class ToolsTab(QWidget):
                             try:
                                 self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
                             except: pass
-                        self.window().refresh_preview(estimate_size=True)
+                        self.window().refresh_preview()
 
                 self.window().run_background_task(
                     self.core.apply_tool,

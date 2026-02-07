@@ -15,30 +15,37 @@ class UpscalerEngine:
         self.binary = os.path.join(model_dir, "realesrgan-ncnn-vulkan")
 
     def upscale(self, pil_image: Image.Image):
-        # Temporary file paths
-        input_path = os.path.join(tempfile.gettempdir(), "upscale_input.png")
-        output_path = os.path.join(tempfile.gettempdir(), "upscale_output.png")
+        # Create a temporary directory that will be deleted automatically
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            input_path = os.path.join(tmp_dir, "upscale_input.png")
+            output_path = os.path.join(tmp_dir, "upscale_output.png")
 
-        # Save image to disk (NCNN works with file paths)
-        pil_image.save(input_path)
+            # Save image to disk (NCNN works with file paths)
+            pil_image.save(input_path)
 
-        # Ensure binary is executable
-        if not os.access(self.binary, os.X_OK):
-            os.chmod(self.binary, 0o755)
+            # Ensure binary is executable (on Windows this might not be needed but kept for portability)
+            if not os.access(self.binary, os.X_OK):
+                try:
+                    os.chmod(self.binary, 0o755)
+                except:
+                    pass
 
-        # NCNN REAL ESRGAN COMMAND
-        cmd = [
-            self.binary,
-            "-i", input_path,
-            "-o", output_path,
-            "-n", "realesrgan-x4plus",   # must use one of supported names
-            "-s", "4",
-            "-t", "400",                 # tile size (default 0 = auto)
-            "-m", self.model_dir,
-        ]
+            # NCNN REAL ESRGAN COMMAND
+            cmd = [
+                self.binary,
+                "-i", input_path,
+                "-o", output_path,
+                "-n", "realesrgan-x4plus",
+                "-s", "4",
+                "-t", "400",
+                "-m", self.model_dir,
+            ]
 
-        # Run the binary (errors raise exceptions)
-        subprocess.run(cmd, check=True)
+            # Run the binary (errors raise exceptions)
+            # Use shell=True on Windows if binary is not directly found, 
+            # but here we have the full path so it should be fine.
+            subprocess.run(cmd, check=True, capture_output=True)
 
-        # Load the upscaled image back into PIL
-        return Image.open(output_path)
+            # Load the upscaled image back into PIL and make a copy to free the file handle
+            with Image.open(output_path) as res_img:
+                return res_img.copy()

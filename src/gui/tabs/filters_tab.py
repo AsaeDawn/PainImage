@@ -83,7 +83,7 @@ class FiltersTab(QWidget):
         # Background task for destructive filter
         def _on_finished(ok):
             self.apply_combined_filters()
-            self.window().refresh_preview(estimate_size=True)
+            self.window().refresh_preview()
 
         # Before applying a new simple filter, we MUST bake the current sliders 
         # so the simple filter applies on top of the preview state.

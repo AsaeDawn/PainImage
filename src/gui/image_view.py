@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QFileDialog
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QPixmap
 from PIL import Image
 from utils.image_utils import pil_image_to_qpixmap
@@ -12,6 +12,11 @@ class ImageView(QWidget):
         self._pix = None
         self._current_pil = None
         self._original_pil = None
+
+        # Debounce timer for resizing
+        self.resize_timer = QTimer()
+        self.resize_timer.setSingleShot(True)
+        self.resize_timer.timeout.connect(self._on_resize_timeout)
 
         self.setAcceptDrops(True)
 
@@ -59,9 +64,15 @@ class ImageView(QWidget):
         self.img_label.hide()
         self.placeholder.show()
 
-    # resizing handling to rescale preview
+    # resizing handling to rescale preview with debounce
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        if self._current_pil:
+            # During active resize, we stop any pending high-quality scale
+            # and wait for the user to stop moving.
+            self.resize_timer.start(150) # 150ms debounce
+
+    def _on_resize_timeout(self):
         if self._current_pil:
             self.display_image(self._current_pil)
 
@@ -76,9 +87,9 @@ class ImageView(QWidget):
             path = urls[0].toLocalFile()
             self.request_open.emit(path)
 
-    # clicking to open
+    # clicking to open - simplify to just emit signal
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)")
-            if path:
-                self.request_open.emit(path)
+            # Emit empty string to signal "user wants to open A file"
+            # MainWindow will handle the dialog.
+            self.request_open.emit("")

@@ -7,5 +7,5 @@ def pil_image_to_qpixmap(pil_img: Image.Image) -> QPixmap:
     if pil_img.mode != "RGBA":
         pil_img = pil_img.convert("RGBA")
     data = pil_img.tobytes("raw", "RGBA")
-    qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format.Format_RGBA8888)
+    qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format.Format_RGBA8888).copy()
     return QPixmap.fromImage(qimg)

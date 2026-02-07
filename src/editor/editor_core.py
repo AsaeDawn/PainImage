@@ -3,6 +3,7 @@ import os
 import importlib
 import tempfile
 import shutil
+import io
 from PIL import Image
 
 
@@ -112,7 +113,8 @@ class EditorCore:
         w, h = image.size
         if w > max_dim or h > max_dim:
             scale = max_dim / max(w, h)
-            return image.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
+            # BOX resampling is much faster for downscaling than BILINEAR while maintaining quality
+            return image.resize((int(w * scale), int(h * scale)), Image.Resampling.BOX)
         return image.copy()
 
     def _save_to_temp(self, image):
@@ -376,7 +378,6 @@ class EditorCore:
         if estimate_size:
             # Estimate size if possible - EXPENSIVE OPERATION
             try:
-                import io
                 buffer = io.BytesIO()
                 fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
                 if fmt == "JPEG":

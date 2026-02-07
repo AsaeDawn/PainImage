@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
 
         # Image view (left)
         self.image_view = ImageView(self)
-        self.image_view.request_open.connect(self._open_path)
+        self.image_view.request_open.connect(self._on_image_view_request_open)
 
         # Sidebar (right)
         self.sidebar = SideBar(self.core, parent=self)
@@ -118,6 +118,12 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)")
         if path:
+            self._open_path(path)
+
+    def _on_image_view_request_open(self, path):
+        if not path:
+            self.on_open()
+        else:
             self._open_path(path)
 
     def _open_path(self, path):
@@ -235,7 +241,7 @@ class MainWindow(QMainWindow):
             if on_finished:
                 on_finished(result)
             else:
-                self.refresh_preview(estimate_size=True)
+                self.refresh_preview()
             self.statusBar().showMessage("Done!", 3000)
 
         def _error(err):
