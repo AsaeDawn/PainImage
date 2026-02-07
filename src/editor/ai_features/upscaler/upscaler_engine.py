@@ -7,18 +7,26 @@ class UpscalerEngine:
     def __init__(self, model_dir):
         """
         model_dir must contain:
-            realesrgan-ncnn-vulkan  (binary)
-            realesrgan-x4.bin
-            realesrgan-x4.param
+            realesrgan-ncnn-vulkan (extension depends on OS)
+            realesrgan-x4plus.bin
+            realesrgan-x4plus.param
         """
         self.model_dir = model_dir
-        self.binary = os.path.join(model_dir, "realesrgan-ncnn-vulkan")
+        import sys
+        binary_name = "realesrgan-ncnn-vulkan"
+        if sys.platform == "win32":
+            binary_name += ".exe"
+        self.binary = os.path.join(model_dir, binary_name)
 
     def upscale(self, pil_image: Image.Image):
         # Create a temporary directory that will be deleted automatically
         with tempfile.TemporaryDirectory() as tmp_dir:
             input_path = os.path.join(tmp_dir, "upscale_input.png")
             output_path = os.path.join(tmp_dir, "upscale_output.png")
+
+            # Ensure binary exists
+            if not os.path.exists(self.binary):
+                raise FileNotFoundError(f"AI Upscaler binary not found at: {self.binary}")
 
             # Save image to disk (NCNN works with file paths)
             pil_image.save(input_path)
