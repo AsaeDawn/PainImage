@@ -35,26 +35,36 @@ class ImageView(QWidget):
         layout.addWidget(self.img_label, 1)
 
     def display_image(self, pil_img):
-        """Set displayed image from PIL image, optimizing by scaling before QPixmap conversion."""
+        """Set displayed image from PIL image, optimizing for speed during previews."""
         self._current_pil = pil_img
         
-        # Calculate target size while keeping aspect ratio
         w, h = pil_img.size
         label_w = self.img_label.width()
         label_h = self.img_label.height()
         
-        if label_w > 0 and label_h > 0:
+        # PERFORMANCE OPTIMIZATION: 
+        # If we are in "preview" mode (moving sliders), we avoid the high-quality PIL resize
+        # for every frame. Instead, we use a single QPixmap conversion and let Qt scale it fast.
+        from editor.editor_core import EditorCore
+        if hasattr(self.parent(), "core") and self.parent().core.in_preview:
+            # Fast mode: convert original size once, scale in Qt
+            pix = pil_image_to_qpixmap(pil_img)
+            self.img_label.setPixmap(pix.scaled(
+                label_w, label_h, 
+                Qt.AspectRatioMode.KeepAspectRatio, 
+                Qt.TransformationMode.FastTransformation
+            ))
+        elif label_w > 0 and label_h > 0:
+            # High-quality mode: scale in PIL (for final display or idle state)
             scale = min(label_w / w, label_h / h)
             new_w = int(w * scale)
             new_h = int(h * scale)
-            
-            # Scale PIL image first (much faster than scaling QPixmap)
             display_pil = pil_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
             pix = pil_image_to_qpixmap(display_pil)
+            self.img_label.setPixmap(pix)
         else:
             pix = pil_image_to_qpixmap(pil_img)
-
-        self.img_label.setPixmap(pix)
+            self.img_label.setPixmap(pix)
         self.img_label.show()
         self.placeholder.hide()
 

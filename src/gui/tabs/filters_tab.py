@@ -85,17 +85,18 @@ class FiltersTab(QWidget):
             self.apply_combined_filters()
             self.window().refresh_preview()
 
-        # Before applying a new simple filter, we MUST bake the current sliders 
-        # so the simple filter applies on top of the preview state.
+        # Get active sliders
         active_filters = self.get_active_filters()
+        
+        # We always reset sliders locally immediately for visual feedback
+        # The background task will handle the actual commitment of those values.
+        saved_slider_values = self.slider_values.copy()
         if active_filters:
-            # Bake on full res and clear sliders
-            self.core.commit_preview(active_filters, self.slider_values)
             self.reset_all_sliders()
 
         self.window().run_background_task(
-            self.core.apply_filter,
-            args=[name],
+            self.core.apply_baked_filter,
+            args=[active_filters, saved_slider_values, name],
             on_finished=_on_finished,
             msg=f"Applying {name}..."
         )

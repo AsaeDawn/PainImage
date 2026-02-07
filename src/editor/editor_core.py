@@ -108,8 +108,8 @@ class EditorCore:
 
     def _create_proxy(self, image):
         """Create a low-res proxy for smooth slider previews."""
-        # Target max dimension of 1280px for the proxy
-        max_dim = 1280
+        # Target max dimension of 1024px for the proxy (performance sweet spot)
+        max_dim = 1024
         w, h = image.size
         if w > max_dim or h > max_dim:
             scale = max_dim / max(w, h)
@@ -231,6 +231,18 @@ class EditorCore:
         # Update proxy after destructive change
         self.preview_proxy = self._create_proxy(self.original_image)
         return True
+
+    def apply_baked_filter(self, filter_list, slider_state, filter_name, **kwargs):
+        """
+        Helper to bake current sliders AND apply a new filter in one go.
+        Useful for running in a background thread to avoid GUI lag.
+        """
+        # 1. Bake
+        if filter_list:
+            self.commit_preview(filter_list, slider_state)
+        
+        # 2. Apply new filter
+        return self.apply_filter(filter_name, **kwargs)
 
     def apply_tool(self, name, **kwargs):
         """Apply a tool to the current image and update state."""
