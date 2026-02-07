@@ -21,8 +21,13 @@ class UpscaleModelManager:
     def download(self, progress_callback=None):
         import urllib.request
         
-        # We try both master and main branches to be safe
-        branches = ["master", "main"]
+        # Using HuggingFace mirror for more reliable large file downloads
+        # GitHub Raw (LFS) can sometimes fail with 404 on direct urlretrieve
+        base_urls = [
+            "https://huggingface.co/caidas/real-esrgan-ncnn-vulkan/resolve/main/models/",
+            "https://raw.githubusercontent.com/xinntao/Real-ESRGAN-ncnn-vulkan/master/models/",
+            "https://raw.githubusercontent.com/xinntao/Real-ESRGAN-ncnn-vulkan/main/models/"
+        ]
         files = ["realesrgan-x4plus.bin", "realesrgan-x4plus.param"]
         
         total_steps = len(files)
@@ -30,7 +35,7 @@ class UpscaleModelManager:
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir, exist_ok=True)
 
-        # Add User-Agent to avoid being blocked
+        # Add User-Agent
         opener = urllib.request.build_opener()
         opener.addheaders = [('User-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')]
         urllib.request.install_opener(opener)
@@ -39,12 +44,11 @@ class UpscaleModelManager:
             success = False
             last_err = None
             
-            for branch in branches:
-                url = f"https://raw.githubusercontent.com/xinntao/Real-ESRGAN-ncnn-vulkan/{branch}/models/{filename}"
+            for base_url in base_urls:
+                url = base_url + filename
                 target_path = os.path.join(self.model_dir, filename)
                 
                 try:
-                    # Basic downloader with progress
                     def _report(block_num, block_size, total_size):
                         if progress_callback and total_size > 0:
                             file_progress = (block_num * block_size) / total_size
@@ -53,13 +57,13 @@ class UpscaleModelManager:
 
                     urllib.request.urlretrieve(url, target_path, reporthook=_report if progress_callback else None)
                     success = True
-                    break # Success with this branch
+                    break
                 except Exception as e:
                     last_err = e
                     continue
             
             if not success:
-                print(f"Failed to download {filename} from all known branches: {last_err}")
+                print(f"Failed to download {filename} from all mirrors: {last_err}")
                 raise last_err
         
         if progress_callback:
