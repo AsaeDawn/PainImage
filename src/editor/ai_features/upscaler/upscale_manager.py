@@ -21,16 +21,19 @@ class UpscaleModelManager:
     def download(self, progress_callback=None):
         import urllib.request
         
-        # We use the standard Real-ESRGAN-ncnn-vulkan models
-        # These URLs point to the official master branch files
-        # Note: .bin files in Git LFS might require specific GitHub raw URLs
-        base_url = "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/raw/master/models/"
+        # Correct Raw URL for GitHub
+        base_url = "https://raw.githubusercontent.com/xinntao/Real-ESRGAN-ncnn-vulkan/master/models/"
         files = ["realesrgan-x4plus.bin", "realesrgan-x4plus.param"]
         
         total_files = len(files)
         
         if not os.path.exists(self.model_dir):
-            os.makedirs(self.model_dir)
+            os.makedirs(self.model_dir, exist_ok=True)
+
+        # Add User-Agent to avoid being blocked
+        opener = urllib.request.build_opener()
+        opener.addheaders = [('User-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')]
+        urllib.request.install_opener(opener)
 
         for i, filename in enumerate(files):
             url = base_url + filename
