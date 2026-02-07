@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QToolBar, QStatusBar
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QToolBar, QStatusBar, QMessageBox
 from PySide6.QtCore import Qt, QThread, Signal
 from editor.editor_core import EditorCore
 
@@ -221,7 +221,10 @@ class MainWindow(QMainWindow):
     def _on_upscale_error(self, message):
         self.topbar.setEnabled(True)
         self.sidebar.setEnabled(True)
-        self.statusBar().showMessage(f"Upscaling error: {message}", 5000)
+        self.statusBar().showMessage("Upscaling failed.", 5000)
+        
+        # Show a detailed message box for AI errors
+        QMessageBox.critical(self, "AI Error", f"The AI upscaler encountered an error:\n\n{message}")
 
     # ---------- Background Tasks ----------
     def run_background_task(self, func, on_finished=None, args=None, kwargs=None, msg="Processing..."):

@@ -47,15 +47,26 @@ class AITab(QWidget):
     # Download the NCNN model files (bin + param)
     # --------------------------------------------------
     def download_model(self):
-        def callback(progress):
-            self.progress.setVisible(True)
-            self.progress.setValue(progress)
+        # We use a signal-based progress update
+        self.progress.setVisible(True)
+        self.btn_download.setEnabled(False)
 
-        self.upscaler.manager.download(progress_callback=callback)
+        def _on_finished(ok):
+            self.progress.hide()
+            self.btn_download.hide()
+            if ok:
+                self.window().statusBar().showMessage("AI Models downloaded successfully!", 5000)
+            else:
+                self.btn_download.setEnabled(True)
+                self.window().statusBar().showMessage("Failed to download AI Models.", 5000)
 
-        self.btn_download.hide()
-        self.progress.hide()
-
+        # We run the manager.download in the background
+        self.window().run_background_task(
+            self.upscaler.manager.download,
+            kwargs={"progress_callback": self.progress.setValue},
+            on_finished=_on_finished,
+            msg="Downloading AI Models (this may take a minute)..."
+        )
     # --------------------------------------------------
     # Upscaling is handled by MainWindow
     # --------------------------------------------------

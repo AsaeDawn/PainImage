@@ -19,19 +19,30 @@ class UpscalerEngine:
         self.binary = os.path.join(model_dir, binary_name)
 
     def upscale(self, pil_image: Image.Image):
+        # 1. Verify models exist before starting
+        import sys
+        binary_name = "realesrgan-ncnn-vulkan"
+        if sys.platform == "win32":
+            binary_name += ".exe"
+            
+        required_files = [
+            binary_name,
+            "realesrgan-x4plus.bin",
+            "realesrgan-x4plus.param"
+        ]
+        for f in required_files:
+            if not os.path.exists(os.path.join(self.model_dir, f)):
+                raise FileNotFoundError(f"Missing required AI file: {f}. Please click 'Download' in the AI tab.")
+
         # Create a temporary directory that will be deleted automatically
         with tempfile.TemporaryDirectory() as tmp_dir:
             input_path = os.path.join(tmp_dir, "upscale_input.png")
             output_path = os.path.join(tmp_dir, "upscale_output.png")
 
-            # Ensure binary exists
-            if not os.path.exists(self.binary):
-                raise FileNotFoundError(f"AI Upscaler binary not found at: {self.binary}")
-
             # Save image to disk (NCNN works with file paths)
             pil_image.save(input_path)
 
-            # Ensure binary is executable (on Windows this might not be needed but kept for portability)
+            # Ensure binary is executable (on Linux this might not be needed but kept for portability)
             if not os.access(self.binary, os.X_OK):
                 try:
                     os.chmod(self.binary, 0o755)
@@ -49,11 +60,17 @@ class UpscalerEngine:
                 "-m", self.model_dir,
             ]
 
-            # Run the binary (errors raise exceptions)
-            # Use shell=True on Windows if binary is not directly found, 
-            # but here we have the full path so it should be fine.
-            subprocess.run(cmd, check=True, capture_output=True)
+            try:
+                # Run the binary
+                result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as e:
+                # Capture stderr for better debugging
+                error_msg = e.stderr if e.stderr else str(e)
+                raise RuntimeError(f"AI Engine failed: {error_msg}")
 
             # Load the upscaled image back into PIL and make a copy to free the file handle
+            if not os.path.exists(output_path):
+                raise RuntimeError("AI Engine finished but output file was not created.")
+
             with Image.open(output_path) as res_img:
                 return res_img.copy()
