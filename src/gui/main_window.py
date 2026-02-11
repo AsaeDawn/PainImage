@@ -200,8 +200,8 @@ class MainWindow(QMainWindow):
             return
 
         self.statusBar().showMessage("AI Upscaling in progress... please wait.")
+        self.sidebar.ai_tab.start_progress()
         self.topbar.setEnabled(False)
-        self.sidebar.setEnabled(False)
 
         self.worker = UpscaleWorker(self.upscaler, self.core.current_image)
         self.worker.finished.connect(self._on_upscale_finished)
@@ -215,12 +215,12 @@ class MainWindow(QMainWindow):
         self.refresh_preview()
         
         self.topbar.setEnabled(True)
-        self.sidebar.setEnabled(True)
+        self.sidebar.ai_tab.stop_progress("Done! Upscaled successfully.")
         self.statusBar().showMessage("Upscaling complete!", 3000)
 
     def _on_upscale_error(self, message):
         self.topbar.setEnabled(True)
-        self.sidebar.setEnabled(True)
+        self.sidebar.ai_tab.show_error("Upscaling failed.")
         self.statusBar().showMessage("Upscaling failed.", 5000)
         
         # Show a detailed message box for AI errors
