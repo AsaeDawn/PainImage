@@ -1,4 +1,5 @@
 import os
+import sys
 
 class UpscaleModelManager:
     def __init__(self):
@@ -7,15 +8,18 @@ class UpscaleModelManager:
         )
 
     def exists(self):
-        import sys
-        binary_name = "realesrgan-ncnn-vulkan"
+        # Check platform-specific binary
         if sys.platform == "win32":
-            binary_name += ".exe"
+            binary_path = os.path.join(self.model_dir, "windows", "realesrgan-ncnn-vulkan.exe")
+        else:
+            binary_path = os.path.join(self.model_dir, "linux", "realesrgan-ncnn-vulkan")
+
+        models_dir = os.path.join(self.model_dir, "models")
 
         return (
-            os.path.exists(os.path.join(self.model_dir, binary_name)) and
-            os.path.exists(os.path.join(self.model_dir, "realesrgan-x4plus.bin")) and
-            os.path.exists(os.path.join(self.model_dir, "realesrgan-x4plus.param"))
+            os.path.exists(binary_path) and
+            os.path.exists(os.path.join(models_dir, "realesrgan-x4plus.bin")) and
+            os.path.exists(os.path.join(models_dir, "realesrgan-x4plus.param"))
         )
 
     def download(self, progress_callback=None):
