@@ -97,9 +97,9 @@ class ImageView(QWidget):
             path = urls[0].toLocalFile()
             self.request_open.emit(path)
 
-    # clicking to open - simplify to just emit signal
+    # clicking to open - only when no image is loaded
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton and self._current_pil is None:
             # Emit empty string to signal "user wants to open A file"
             # MainWindow will handle the dialog.
             self.request_open.emit("")

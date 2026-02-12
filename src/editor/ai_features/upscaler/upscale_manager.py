@@ -36,8 +36,9 @@ class UpscaleModelManager:
         
         total_steps = len(files)
         
-        if not os.path.exists(self.model_dir):
-            os.makedirs(self.model_dir, exist_ok=True)
+        models_dir = os.path.join(self.model_dir, "models")
+        if not os.path.exists(models_dir):
+            os.makedirs(models_dir, exist_ok=True)
 
         # Add User-Agent
         opener = urllib.request.build_opener()
@@ -50,7 +51,7 @@ class UpscaleModelManager:
             
             for base_url in base_urls:
                 url = base_url + filename
-                target_path = os.path.join(self.model_dir, filename)
+                target_path = os.path.join(models_dir, filename)
                 
                 try:
                     def _report(block_num, block_size, total_size):

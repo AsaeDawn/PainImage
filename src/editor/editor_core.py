@@ -4,6 +4,7 @@ import importlib
 import tempfile
 import shutil
 import io
+import atexit
 from PIL import Image
 
 
@@ -37,11 +38,11 @@ class EditorCore:
         # Disk-backed history setup
         self._temp_dir = tempfile.mkdtemp(prefix="painimage_history_")
         self._history_counter = 0
+        atexit.register(self._cleanup_temp_dir)
 
-    def __del__(self):
+    def _cleanup_temp_dir(self):
         """Cleanup temporary history files."""
         if hasattr(self, "_temp_dir") and os.path.exists(self._temp_dir):
-            import shutil
             shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     # -------------------------
@@ -74,7 +75,8 @@ class EditorCore:
             for f in os.listdir(self._temp_dir):
                 try:
                     os.remove(os.path.join(self._temp_dir, f))
-                except: pass
+                except OSError:
+                    pass
 
     def save_auto(self):
         """
@@ -281,11 +283,12 @@ class EditorCore:
                     os.remove(old_path)
             
             # Clear redo stack and its files
-            for path, _ in self.redo_stack:
-                if os.path.exists(path):
+            for old_redo_path, _ in self.redo_stack:
+                if os.path.exists(old_redo_path):
                     try:
-                        os.remove(path)
-                    except: pass
+                        os.remove(old_redo_path)
+                    except OSError:
+                        pass
             self.redo_stack.clear()
 
     # =====================================================
@@ -353,6 +356,8 @@ class EditorCore:
         self.original_image = image.copy()
         self.current_image = image.copy()
         image.close()
+        # Regenerate proxy so sliders apply to the correct base
+        self.preview_proxy = self._create_proxy(self.original_image)
 
         return slider_state
 
@@ -371,6 +376,8 @@ class EditorCore:
         self.original_image = image.copy()
         self.current_image = image.copy()
         image.close()
+        # Regenerate proxy so sliders apply to the correct base
+        self.preview_proxy = self._create_proxy(self.original_image)
 
         return slider_state
 

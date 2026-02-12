@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         # Core backend
         self.core = EditorCore()
 
-        self.upscaler = self.core.ai_features["Upscaler"]
+        self.upscaler = self.core.ai_features.get("Upscaler")
 
         self._showing_original = False
 
@@ -112,9 +112,6 @@ class MainWindow(QMainWindow):
 
     # ---------- Actions ----------
     def on_open(self):
-        # open dialog from image_view
-        self.image_view.mousePressEvent  # keep for API but call file dialog via image_view click behavior
-        # We use a small helper: open a file using QFileDialog
         from PySide6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)")
         if path:
@@ -136,12 +133,30 @@ class MainWindow(QMainWindow):
 
     def on_save(self):
         from PySide6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getSaveFileName(self, "Save Image", "", "PNG (*.png);;JPEG (*.jpg);;WebP (*.webp)")
+        import os
+        path, selected_filter = QFileDialog.getSaveFileName(self, "Save Image", "", "PNG (*.png);;JPEG (*.jpg);;WebP (*.webp)")
         if not path:
             return
-        # if current_image is a PIL Image, save directly
         if self.core.current_image:
-            self.core.current_image.save(path)
+            # Determine format from file extension, fall back to PNG
+            ext = os.path.splitext(path)[1].lower()
+            fmt_map = {".png": "PNG", ".jpg": "JPEG", ".jpeg": "JPEG", ".webp": "WEBP"}
+            fmt = fmt_map.get(ext, "PNG")
+            # Append extension if missing
+            if not ext:
+                if "JPEG" in selected_filter:
+                    fmt = "JPEG"
+                    path += ".jpg"
+                elif "WebP" in selected_filter:
+                    fmt = "WEBP"
+                    path += ".webp"
+                else:
+                    fmt = "PNG"
+                    path += ".png"
+            if fmt == "JPEG":
+                self.core.current_image.save(path, format=fmt, quality=90)
+            else:
+                self.core.current_image.save(path, format=fmt)
 
     def on_toggle_preview(self):
         self._showing_original = not self._showing_original

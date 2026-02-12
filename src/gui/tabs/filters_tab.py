@@ -121,7 +121,7 @@ class FiltersTab(QWidget):
         
         try:
             self.window().refresh_preview(estimate_size=True)
-        except:
+        except Exception:
             pass
 
     def on_slider_changed(self, name, value):

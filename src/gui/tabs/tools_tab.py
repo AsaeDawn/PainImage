@@ -109,7 +109,7 @@ class ToolsTab(QWidget):
                         saved_path = self.core.save_auto()
                         if saved_path:
                             try: self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
-                            except: pass
+                            except Exception: pass
                         self.window().refresh_preview()
 
                 def _task():
