@@ -62,7 +62,6 @@ class MainWindow(QMainWindow):
         self.topbar.toggle_preview_original.connect(self.on_toggle_preview)
         self.topbar.undo_requested.connect(self.on_undo)
         self.topbar.redo_requested.connect(self.on_redo)
-        self.topbar.redo_requested.connect(self.on_redo)
         self.topbar.toggle_history.connect(self.on_toggle_history)
         self.topbar.toggle_theme.connect(self.on_toggle_theme)
 
