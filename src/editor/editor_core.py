@@ -1,6 +1,10 @@
 import sys
 import os
 import importlib
+import tempfile
+import shutil
+import io
+import atexit
 from PIL import Image
 
 
@@ -29,8 +33,17 @@ class EditorCore:
         self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
         self.preview_base_image = None
         self.in_preview = False
-        self._last_size_kb = 0
         self.current_format = "PNG"         # DEFAULT FORMAT
+
+        # Disk-backed history setup
+        self._temp_dir = tempfile.mkdtemp(prefix="painimage_history_")
+        self._history_counter = 0
+        atexit.register(self._cleanup_temp_dir)
+
+    def _cleanup_temp_dir(self):
+        """Cleanup temporary history files."""
+        if hasattr(self, "_temp_dir") and os.path.exists(self._temp_dir):
+            shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     # -------------------------
     # Load image
@@ -48,11 +61,22 @@ class EditorCore:
         self.original_image = img.copy()
         self.current_image = img.copy()
 
+        # Create proxy for smooth previews
+        self.preview_proxy = self._create_proxy(self.original_image)
+
         self.history.clear()
         self.redo_stack.clear()
         # Default state: no slider adjustments
         self._initial_slider_state = {} 
         self._last_size_kb = 0
+
+        # Clear disk history
+        if os.path.exists(self._temp_dir):
+            for f in os.listdir(self._temp_dir):
+                try:
+                    os.remove(os.path.join(self._temp_dir, f))
+                except OSError:
+                    pass
 
     def save_auto(self):
         """
@@ -83,6 +107,24 @@ class EditorCore:
         except Exception as e:
             print(f"Auto-save failed: {e}")
             return None
+
+    def _create_proxy(self, image):
+        """Create a low-res proxy for smooth slider previews."""
+        # Target max dimension of 1024px for the proxy (performance sweet spot)
+        max_dim = 1024
+        w, h = image.size
+        if w > max_dim or h > max_dim:
+            scale = max_dim / max(w, h)
+            # BOX resampling is much faster for downscaling than BILINEAR while maintaining quality
+            return image.resize((int(w * scale), int(h * scale)), Image.Resampling.BOX)
+        return image.copy()
+
+    def _save_to_temp(self, image):
+        """Save a PIL image to temp disk and return path."""
+        self._history_counter += 1
+        path = os.path.join(self._temp_dir, f"state_{self._history_counter}.png")
+        image.save(path, format="PNG")
+        return path
 
     # -------------------------
     # Filter Loader
@@ -177,6 +219,9 @@ class EditorCore:
         if name not in self.filters or self.original_image is None:
             return False
 
+        # Build-in push history for destructive filters
+        self.push_history()
+
         module = self.filters[name]
 
         if kwargs:
@@ -185,7 +230,21 @@ class EditorCore:
             self.original_image = module.run(self.original_image)
 
         self.current_image = self.original_image.copy()
+        # Update proxy after destructive change
+        self.preview_proxy = self._create_proxy(self.original_image)
         return True
+
+    def apply_baked_filter(self, filter_list, slider_state, filter_name, **kwargs):
+        """
+        Helper to bake current sliders AND apply a new filter in one go.
+        Useful for running in a background thread to avoid GUI lag.
+        """
+        # 1. Bake
+        if filter_list:
+            self.commit_preview(filter_list, slider_state)
+        
+        # 2. Apply new filter
+        return self.apply_filter(filter_name, **kwargs)
 
     def apply_tool(self, name, **kwargs):
         """Apply a tool to the current image and update state."""
@@ -205,37 +264,51 @@ class EditorCore:
                 
             self.original_image = result.copy()
             self.current_image = self.original_image.copy()
+            # Update proxy after tool application
+            self.preview_proxy = self._create_proxy(self.original_image)
             return self.current_image
         
         return None
 
     def push_history(self, slider_state=None):
         if self.original_image:
-            # Store image and the state of sliders *at that moment*
-            state = (self.original_image.copy(), slider_state.copy() if slider_state else {})
+            # Save image to disk instead of memory
+            path = self._save_to_temp(self.original_image)
+            state = (path, slider_state.copy() if slider_state else {})
             self.history.append(state)
+            
             if len(self.history) > self.max_history:
-                self.history.pop(0)
+                old_path, _ = self.history.pop(0)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            
+            # Clear redo stack and its files
+            for old_redo_path, _ in self.redo_stack:
+                if os.path.exists(old_redo_path):
+                    try:
+                        os.remove(old_redo_path)
+                    except OSError:
+                        pass
             self.redo_stack.clear()
 
     # =====================================================
     # PREVIEW (SLIDERS – NON DESTRUCTIVE)
     # =====================================================
     def apply_preview_filter(self, name, **kwargs):
-        """Single preview filter application."""
-        if not self.in_preview or self.original_image is None:
+        """Single preview filter application on PROXY."""
+        if not self.in_preview or self.preview_proxy is None:
             return False
 
         module = self.filters[name]
-        self.current_image = module.run(self.original_image, **kwargs)
+        self.current_image = module.run(self.preview_proxy.copy(), **kwargs)
         return True
 
     def apply_preview_filters(self, filter_list):
-        """Apply multiple preview filters in a chain starting from original_image."""
-        if not self.in_preview or self.original_image is None:
+        """Apply multiple preview filters in a chain starting from proxy."""
+        if not self.in_preview or self.preview_proxy is None:
             return False
             
-        img = self.original_image.copy()
+        img = self.preview_proxy.copy()
         for name, kwargs in filter_list:
             if name in self.filters:
                 img = self.filters[name].run(img, **kwargs)
@@ -243,15 +316,25 @@ class EditorCore:
         self.current_image = img
         return True
 
-    def commit_preview(self):
+    def commit_preview(self, filter_list=None, slider_state=None):
         """Permanently apply current preview state to history."""
-        if not self.in_preview or self.current_image is None:
+        if not self.in_preview or self.original_image is None:
             return False
+            
+        # Re-apply filters to FULL RESOLUTION image before commit
+        if filter_list:
+            img = self.original_image.copy()
+            for name, kwargs in filter_list:
+                if name in self.filters:
+                    img = self.filters[name].run(img, **kwargs)
+            self.push_history(slider_state)
+            self.original_image = img
+        else:
+            self.push_history(slider_state)
+            self.original_image = self.current_image.copy()
 
-        self.push_history()
-        self.original_image = self.current_image.copy()
-        # Preview stays active but base defaults to new original if we wanted, 
-        # but for simple sliders we usually stop preview after commit.
+        self.current_image = self.original_image.copy()
+        self.preview_proxy = self._create_proxy(self.original_image)
         self.in_preview = False
         return True
 
@@ -262,14 +345,19 @@ class EditorCore:
         if not self.history:
             return None
 
-        # Save current state to redo stack before moving back
-        current_state = (self.original_image.copy(), current_slider_state.copy() if current_slider_state else {})
+        # Save current state to redo stack
+        path = self._save_to_temp(self.original_image)
+        current_state = (path, current_slider_state.copy() if current_slider_state else {})
         self.redo_stack.append(current_state)
 
-        # Restore previous state
-        image, slider_state = self.history.pop()
+        # Restore previous state from disk
+        path, slider_state = self.history.pop()
+        image = Image.open(path)
         self.original_image = image.copy()
         self.current_image = image.copy()
+        image.close()
+        # Regenerate proxy so sliders apply to the correct base
+        self.preview_proxy = self._create_proxy(self.original_image)
 
         return slider_state
 
@@ -277,14 +365,19 @@ class EditorCore:
         if not self.redo_stack:
             return None
 
-        # Save current state to history before moving forward
-        current_state = (self.original_image.copy(), current_slider_state.copy() if current_slider_state else {})
+        # Save current state to history
+        path = self._save_to_temp(self.original_image)
+        current_state = (path, current_slider_state.copy() if current_slider_state else {})
         self.history.append(current_state)
 
-        # Restore next state
-        image, slider_state = self.redo_stack.pop()
+        # Restore next state from disk
+        path, slider_state = self.redo_stack.pop()
+        image = Image.open(path)
         self.original_image = image.copy()
         self.current_image = image.copy()
+        image.close()
+        # Regenerate proxy so sliders apply to the correct base
+        self.preview_proxy = self._create_proxy(self.original_image)
 
         return slider_state
 
@@ -304,7 +397,6 @@ class EditorCore:
         if estimate_size:
             # Estimate size if possible - EXPENSIVE OPERATION
             try:
-                import io
                 buffer = io.BytesIO()
                 fmt = info["format"] if info["format"] in ["JPEG", "PNG", "WEBP"] else "PNG"
                 if fmt == "JPEG":

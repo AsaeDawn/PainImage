@@ -23,7 +23,7 @@ class TopBar(QWidget):
         self.undo_btn = QPushButton("Undo")
         self.redo_btn = QPushButton("Redo")
         self.preview_btn = QPushButton("Preview Original")
-        self.theme_btn = QPushButton("Dark")
+        self.theme_btn = QPushButton("☀ Light")
 
         # Connect
         self.open_btn.clicked.connect(self.open_image.emit)
@@ -48,5 +48,5 @@ class TopBar(QWidget):
         self.toggle_preview_original.emit()
 
     def _on_theme_clicked(self):
-        self.theme_btn.setText("Light" if self.theme_btn.text() == "Dark" else "Dark")
+        self.theme_btn.setText("🌙 Dark" if "Light" in self.theme_btn.text() else "☀ Light")
         self.toggle_theme.emit()

@@ -55,9 +55,16 @@ class ToolsTab(QWidget):
 
     def make_tool(self, name):
         def _do():
-            res = None
+            # Get current active adjustments to bake
+            active_filters = self.window().sidebar.filters_tab.get_active_filters()
+            slider_values = self.window().sidebar.filters_tab.slider_values.copy()
+
+            def _on_tool_finished(res):
+                if res:
+                    self.window().sidebar.filters_tab.reset_all_sliders()
+                    self.window().refresh_preview()
+
             if name == "Resize Image":
-                # Get current resolution for defaults
                 info = self.core.get_image_info()
                 curr_w = info["width"] if info else 800
                 curr_h = info["height"] if info else 600
@@ -65,32 +72,66 @@ class ToolsTab(QWidget):
                 dlg = ResizeDialog(curr_w, curr_h, self)
                 if dlg.exec() == QDialog.Accepted:
                     w, h = dlg.get_values()
-                    res = self.core.apply_tool(name, width=w, height=h)
+                    
+                    def _task():
+                        if active_filters:
+                            self.core.commit_preview(active_filters, slider_values)
+                        return self.core.apply_tool(name, width=w, height=h)
+
+                    self.window().run_background_task(
+                        _task,
+                        on_finished=_on_tool_finished,
+                        msg=f"Resizing to {w}x{h}..."
+                    )
 
             elif name == "Compress to Size":
                 kb, ok = QInputDialog.getInt(self, "Compress", "Target KB:", 100, 1)
                 if not ok: return
-                res = self.core.apply_tool(name, target_kb=kb)
+
+                def _task():
+                    if active_filters:
+                        self.core.commit_preview(active_filters, slider_values)
+                    return self.core.apply_tool(name, target_kb=kb)
+
+                self.window().run_background_task(
+                    _task,
+                    on_finished=_on_tool_finished,
+                    msg=f"Compressing to {kb} KB..."
+                )
 
             elif name == "Convert Format":
                 fmt, ok = QInputDialog.getItem(self, "Convert", "Format:", ["PNG","JPEG","WEBP"], 0, False)
                 if not ok: return
-                res = self.core.apply_tool(name, fmt=fmt)
-                if res:
-                    # Automatically save in original directory
-                    saved_path = self.core.save_auto()
-                    if saved_path:
-                        try:
-                            self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
-                        except: pass
+                
+                def _on_convert_finished(res):
+                    if res:
+                        self.window().sidebar.filters_tab.reset_all_sliders()
+                        saved_path = self.core.save_auto()
+                        if saved_path:
+                            try: self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
+                            except Exception: pass
+                        self.window().refresh_preview()
+
+                def _task():
+                    if active_filters:
+                        self.core.commit_preview(active_filters, slider_values)
+                    return self.core.apply_tool(name, fmt=fmt)
+
+                self.window().run_background_task(
+                    _task,
+                    on_finished=_on_convert_finished,
+                    msg=f"Converting to {fmt}..."
+                )
 
             else:
-                # generic call
-                res = self.core.apply_tool(name)
+                def _task():
+                    if active_filters:
+                        self.core.commit_preview(active_filters, slider_values)
+                    return self.core.apply_tool(name)
 
-            if res is not None:
-                try:
-                    self.window().refresh_preview(estimate_size=True)
-                except:
-                    pass
+                self.window().run_background_task(
+                    _task,
+                    on_finished=_on_tool_finished,
+                    msg=f"Applying tool: {name}..."
+                )
         return _do
