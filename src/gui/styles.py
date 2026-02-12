@@ -12,6 +12,7 @@ QLabel#historyTitle { font-weight: bold; padding: 10px; font-size: 14px; color: 
 QListWidget#historyList { background: #121318; border: none; outline: 0; }
 QListWidget#historyList::item { padding: 6px; color: #9AA0A6; }
 QListWidget#historyList::item:selected { background: #1F6FEB; color: white; border-radius: 4px; }
+QListWidget#historyList::item:disabled { color: #4A4D55; }
 """
 
 LIGHT_STYLE = """
@@ -27,4 +28,5 @@ QLabel#historyTitle { font-weight: bold; padding: 10px; font-size: 14px; color: 
 QListWidget#historyList { background: #F7F8FA; border: none; outline: 0; }
 QListWidget#historyList::item { padding: 6px; color: #6B6F76; }
 QListWidget#historyList::item:selected { background: #0078D4; color: white; border-radius: 4px; }
+QListWidget#historyList::item:disabled { color: #CFD0D4; }
 """

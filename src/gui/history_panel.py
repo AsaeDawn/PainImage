@@ -9,8 +9,8 @@ class HistoryPanel(QWidget):
         self.setFixedWidth(240)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         # Title
         title_lbl = QLabel("History")
