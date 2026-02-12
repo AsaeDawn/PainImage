@@ -60,7 +60,9 @@ class FiltersTab(QWidget):
                 # Undo tracking: capture state BEFORE move starts
                 slider.sliderPressed.connect(self.capture_before_move)
                 # Auto-save history when slider is released + trigger full preview update (with size)
-                slider.sliderReleased.connect(self.on_slider_released)
+                slider.sliderReleased.connect(
+                    lambda n=name: self.on_slider_released(n)
+                )
 
                 self.vbox.addWidget(slider)
                 self.slider_widgets[name] = slider
@@ -107,9 +109,15 @@ class FiltersTab(QWidget):
                 filter_list.append((name, {"delta": delta}))
         return filter_list
 
-    def on_slider_released(self):
+    def on_slider_released(self, name):
         """Handle slider release: save state to history without 'baking' into base."""
-        self.core.push_history(self.slider_values)
+        val = self.slider_values.get(name, 50)
+        # nice format like "Brightness: +10" or "Contrast: -5"
+        diff = val - 50
+        sign = "+" if diff > 0 else ""
+        desc = f"{name}: {sign}{diff}"
+        
+        self.core.push_history(self.slider_values, description=desc)
         
         try:
             self.window().refresh_preview(estimate_size=True)

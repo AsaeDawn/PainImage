@@ -5,6 +5,7 @@ from editor.editor_core import EditorCore
 from gui.topbar import TopBar
 from gui.image_view import ImageView
 from gui.sidebar import SideBar
+from gui.history_panel import HistoryPanel
 from gui.styles import DARK_STYLE, LIGHT_STYLE
 
 class TaskWorker(QThread):
@@ -61,6 +62,8 @@ class MainWindow(QMainWindow):
         self.topbar.toggle_preview_original.connect(self.on_toggle_preview)
         self.topbar.undo_requested.connect(self.on_undo)
         self.topbar.redo_requested.connect(self.on_redo)
+        self.topbar.redo_requested.connect(self.on_redo)
+        self.topbar.toggle_history.connect(self.on_toggle_history)
         self.topbar.toggle_theme.connect(self.on_toggle_theme)
 
         # Central layout
@@ -80,6 +83,11 @@ class MainWindow(QMainWindow):
         self.sidebar.filters_tab.filter_applied.connect(self.refresh_preview)
 
 
+        # History Panel (Left, hidden by default)
+        self.history_panel = HistoryPanel(self)
+        self.history_panel.hide()
+
+        layout.addWidget(self.history_panel, 0)
         layout.addWidget(self.image_view, 3)
         layout.addWidget(self.sidebar, 1)
 
@@ -188,6 +196,18 @@ class MainWindow(QMainWindow):
             msg="Redoing..."
         )
 
+    def on_toggle_history(self):
+        if self.history_panel.isVisible():
+            self.history_panel.hide()
+            self.topbar.history_btn.setChecked(False)
+        else:
+            self.history_panel.show()
+            self.topbar.history_btn.setChecked(True)
+            self.update_history_panel()
+
+    def update_history_panel(self):
+        self.history_panel.update_history(self.core.action_log, self.core.action_index)
+
     def on_toggle_theme(self):
         self._dark = not self._dark
         self.apply_theme()
@@ -208,6 +228,10 @@ class MainWindow(QMainWindow):
         else:
             self.image_view.clear()
             self.statusBar().clearMessage()
+        
+        # Always update history panel if visible
+        if self.history_panel.isVisible():
+            self.update_history_panel()
 
     def run_upscale_from_ai(self):
         if not self.core.current_image:

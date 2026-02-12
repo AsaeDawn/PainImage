@@ -7,6 +7,11 @@ QTabWidget::tab-bar { alignment: center; }
 QTabBar::tab { background: transparent; padding: 8px 12px; margin: 2px; border-radius:6px; }
 QTabBar::tab:selected { background: #1F6FEB; color: white; }
 QScrollArea { background: transparent; }
+/* History Panel */
+QLabel#historyTitle { font-weight: bold; padding: 10px; font-size: 14px; color: #E6E6E6; border-bottom: 1px solid #2A2B33; }
+QListWidget#historyList { background: #121318; border: none; outline: 0; }
+QListWidget#historyList::item { padding: 6px; color: #9AA0A6; }
+QListWidget#historyList::item:selected { background: #1F6FEB; color: white; border-radius: 4px; }
 """
 
 LIGHT_STYLE = """
@@ -17,4 +22,9 @@ QLabel#placeholder { color: #6B6F76; font-size: 16px; }
 QTabWidget::tab-bar { alignment: center; }
 QTabBar::tab { background: transparent; padding: 8px 12px; margin: 2px; border-radius:6px; }
 QTabBar::tab:selected { background: #0078D4; color: white; }
+/* History Panel */
+QLabel#historyTitle { font-weight: bold; padding: 10px; font-size: 14px; color: #111216; border-bottom: 1px solid #E6E6E9; }
+QListWidget#historyList { background: #F7F8FA; border: none; outline: 0; }
+QListWidget#historyList::item { padding: 6px; color: #6B6F76; }
+QListWidget#historyList::item:selected { background: #0078D4; color: white; border-radius: 4px; }
 """
