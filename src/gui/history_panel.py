@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 class HistoryPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("historyPanel")
         self.setFixedWidth(240)
         
         layout = QVBoxLayout(self)
