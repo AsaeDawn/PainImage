@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QListWidget, QListWidgetItem
+    QWidget, QVBoxLayout, QLabel, QListWidget, QListWidgetItem, QFrame
 )
 from PySide6.QtCore import Qt
 
-class HistoryPanel(QWidget):
+class HistoryPanel(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("historyPanel")
