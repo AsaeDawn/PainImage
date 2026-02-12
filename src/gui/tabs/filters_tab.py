@@ -74,12 +74,6 @@ class FiltersTab(QWidget):
                 )
                 self.vbox.addWidget(btn)
 
-        # --- Apply Sliders button ---
-        self.apply_sliders_btn = QPushButton("Apply Sliders")
-        self.apply_sliders_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.apply_sliders_btn.clicked.connect(self.apply_sliders)
-        self.vbox.addWidget(self.apply_sliders_btn)
-
         self.vbox.addStretch(1)
         scroll.setWidget(container)
         layout.addWidget(scroll)
@@ -97,26 +91,6 @@ class FiltersTab(QWidget):
             args=[name],
             on_finished=_on_finished,
             msg=f"Applying {name}..."
-        )
-
-    def apply_sliders(self):
-        """Bake current slider adjustments into the base image. Resets sliders to neutral."""
-        active_filters = self.get_active_filters()
-        if not active_filters:
-            return  # nothing to apply, all sliders are already at 50
-
-        saved_slider_values = self.slider_values.copy()
-        self.core.in_preview = True
-
-        def _on_finished(result):
-            self.reset_all_sliders()
-            self.window().refresh_preview(estimate_size=True)
-
-        self.window().run_background_task(
-            self.core.commit_preview,
-            args=[active_filters, saved_slider_values],
-            on_finished=_on_finished,
-            msg="Applying slider adjustments..."
         )
 
     def capture_before_move(self):
