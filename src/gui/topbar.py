@@ -7,6 +7,7 @@ class TopBar(QWidget):
     toggle_preview_original = Signal()
     undo_requested = Signal()
     redo_requested = Signal()
+    toggle_history = Signal()
     toggle_theme = Signal()
 
     def __init__(self, parent=None):
@@ -38,6 +39,13 @@ class TopBar(QWidget):
         layout.addWidget(self.save_btn)
         layout.addWidget(self.undo_btn)
         layout.addWidget(self.redo_btn)
+        
+        # History toggle
+        self.history_btn = QPushButton("History")
+        self.history_btn.setCheckable(True)
+        self.history_btn.clicked.connect(self.toggle_history.emit)
+        layout.addWidget(self.history_btn)
+
         layout.addStretch(1)
         layout.addWidget(self.preview_btn)
         layout.addWidget(self.theme_btn)

@@ -23,6 +23,8 @@ class EditorCore:
         self.max_history = max_history
         self.history = []
         self.redo_stack = []
+        self.action_log = ["Start"]  # Tracks descriptions of actions
+        self.action_index = 0      # Points to current state in action_log
 
         self.filters = self.load_filters()
         self.tools = self.load_tools()
@@ -66,6 +68,11 @@ class EditorCore:
 
         self.history.clear()
         self.redo_stack.clear()
+        
+        # Reset action log
+        self.action_log = ["Open Image"]
+        self.action_index = 0
+
         # Default state: no slider adjustments
         self._initial_slider_state = {} 
         self._last_size_kb = 0
@@ -220,7 +227,7 @@ class EditorCore:
             return False
 
         # Build-in push history for destructive filters
-        self.push_history()
+        self.push_history(description=name)
 
         module = self.filters[name]
 
@@ -252,7 +259,7 @@ class EditorCore:
             return None
 
         # Tools are destructive to the current workflow state (they push history)
-        self.push_history()
+        self.push_history(description=name)
 
         module = self.tools[name]
         result = module.run(self.current_image.copy(), **kwargs)
@@ -270,7 +277,7 @@ class EditorCore:
         
         return None
 
-    def push_history(self, slider_state=None):
+    def push_history(self, slider_state=None, description="Edit"):
         if self.original_image:
             # Save image to disk instead of memory
             path = self._save_to_temp(self.original_image)
@@ -290,6 +297,17 @@ class EditorCore:
                     except OSError:
                         pass
             self.redo_stack.clear()
+            
+            # Update action log
+            # Truncate any 'redo' actions that are now invalid
+            self.action_log = self.action_log[:self.action_index + 1]
+            self.action_log.append(description)
+            self.action_index += 1
+            
+            # Maintain log size consistent with history size
+            if len(self.action_log) > self.max_history + 1: # +1 for initial state
+                self.action_log.pop(0)
+                self.action_index -= 1
 
     # =====================================================
     # PREVIEW (SLIDERS – NON DESTRUCTIVE)
@@ -316,7 +334,7 @@ class EditorCore:
         self.current_image = img
         return True
 
-    def commit_preview(self, filter_list=None, slider_state=None):
+    def commit_preview(self, filter_list=None, slider_state=None, description="Apply Adjustments"):
         """Permanently apply current preview state to history."""
         if not self.in_preview or self.original_image is None:
             return False
@@ -327,10 +345,10 @@ class EditorCore:
             for name, kwargs in filter_list:
                 if name in self.filters:
                     img = self.filters[name].run(img, **kwargs)
-            self.push_history(slider_state)
+            self.push_history(slider_state, description=description)
             self.original_image = img
         else:
-            self.push_history(slider_state)
+            self.push_history(slider_state, description=description)
             self.original_image = self.current_image.copy()
 
         self.current_image = self.original_image.copy()
@@ -359,6 +377,7 @@ class EditorCore:
         # Regenerate proxy so sliders apply to the correct base
         self.preview_proxy = self._create_proxy(self.original_image)
 
+        self.action_index -= 1
         return slider_state
 
     def redo(self, current_slider_state=None):
@@ -379,6 +398,7 @@ class EditorCore:
         # Regenerate proxy so sliders apply to the correct base
         self.preview_proxy = self._create_proxy(self.original_image)
 
+        self.action_index += 1
         return slider_state
 
     def get_image_info(self, estimate_size=False):
