@@ -33,7 +33,7 @@ class ImageView(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.setFrameShape(0) # No border
+        self.setFrameShape(QGraphicsView.Shape.NoFrame) # No border
 
         # Placeholder (Overlay Widget)
         self.placeholder = QLabel("Click or drag an image here to open", self)
