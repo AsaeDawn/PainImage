@@ -1,92 +1,124 @@
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QFileDialog
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QLabel, QGraphicsItem
+from PySide6.QtCore import Qt, Signal, QTimer, QRectF, QPointF
+from PySide6.QtGui import QPixmap, QPainter, QWheelEvent, QMouseEvent
 from PIL import Image
 from utils.image_utils import pil_image_to_qpixmap
 
-class ImageView(QWidget):
-    request_open = Signal(str)  # optional: file path when clicking
+class ImageView(QGraphicsView):
+    request_open = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._pix = None
+        
+        # Setup Scene
+        self.scene = QGraphicsScene(self)
+        self.setScene(self.scene)
+        
+        # Image Item
+        self._item = QGraphicsPixmapItem()
+        self._item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+        self.scene.addItem(self._item)
+        
+        # State
         self._current_pil = None
-        self._original_pil = None
+        self._zoom_factor = 1.15
+        self._fit_to_window = True  # Initially fit to window
+        self._empty = True
+        
+        # Setup View
+        self.setRenderHint(QPainter.Antialiasing, False) # Pixel exact rendering usually better for editors, strictly
+        self.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        self.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setFrameShape(QGraphicsView.Shape.NoFrame) # No border
 
-        # Debounce timer for resizing
-        self.resize_timer = QTimer()
-        self.resize_timer.setSingleShot(True)
-        self.resize_timer.timeout.connect(self._on_resize_timeout)
-
-        self.setAcceptDrops(True)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-
-        self.placeholder = QLabel("Click or drag an image here to open")
-        self.placeholder.setObjectName("placeholder")
+        # Placeholder (Overlay Widget)
+        self.placeholder = QLabel("Click or drag an image here to open", self)
         self.placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.placeholder.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True) # Let clicks pass through if needed, but we handle click manually
+        # Actually, if we want click-to-open logic on the placeholder, we can handle it in mousePress of View
+        self.placeholder.show()
 
-        self.img_label = QLabel()
-        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.img_label.hide()
-
-        layout.addWidget(self.placeholder)
-        layout.addWidget(self.img_label, 1)
+        # Drag & Drop
+        self.setAcceptDrops(True)
+        
+        # Styling to match previous look (roughly)
+        self.setStyleSheet("background: transparent;") # Let parent style handle bg? or set specific
 
     def display_image(self, pil_img):
-        """Set displayed image from PIL image, optimizing for speed during previews."""
+        """Display the image. Handles high-DPI scaling and proxy previews."""
         self._current_pil = pil_img
-        
-        w, h = pil_img.size
-        label_w = self.img_label.width()
-        label_h = self.img_label.height()
-        
-        # PERFORMANCE OPTIMIZATION: 
-        # If we are in "preview" mode (moving sliders), we avoid the high-quality PIL resize
-        # for every frame. Instead, we use a single QPixmap conversion and let Qt scale it fast.
-        from editor.editor_core import EditorCore
-        if hasattr(self.parent(), "core") and self.parent().core.in_preview:
-            # Fast mode: convert original size once, scale in Qt
-            pix = pil_image_to_qpixmap(pil_img)
-            self.img_label.setPixmap(pix.scaled(
-                label_w, label_h, 
-                Qt.AspectRatioMode.KeepAspectRatio, 
-                Qt.TransformationMode.FastTransformation
-            ))
-        elif label_w > 0 and label_h > 0:
-            # High-quality mode: scale in PIL (for final display or idle state)
-            scale = min(label_w / w, label_h / h)
-            new_w = int(w * scale)
-            new_h = int(h * scale)
-            display_pil = pil_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
-            pix = pil_image_to_qpixmap(display_pil)
-            self.img_label.setPixmap(pix)
-        else:
-            pix = pil_image_to_qpixmap(pil_img)
-            self.img_label.setPixmap(pix)
-        self.img_label.show()
+        self._empty = False
         self.placeholder.hide()
+        
+        # Convert to Pixmap
+        pix = pil_image_to_qpixmap(pil_img)
+        self._item.setPixmap(pix)
+        
+        # Handle Proxy Scaling (if in preview mode)
+        # We need to know if this is a proxy to scale it up visually
+        scale = 1.0
+        if hasattr(self.parent(), "core"):
+            core = self.parent().core
+            if core.in_preview and core.original_image:
+                # Calculate scale factor relative to original
+                orig_w, _ = core.original_image.size
+                if pil_img.width > 0:
+                    scale = orig_w / pil_img.width
+        
+        # Apply scale to item so it matches "Scene Logic Coordinates" (Full Res)
+        self._item.setScale(scale)
+        
+        # Update Scene Rect to match the logical size of the image
+        scene_w = pix.width() * scale
+        scene_h = pix.height() * scale
+        self.scene.setSceneRect(0, 0, scene_w, scene_h)
+
+        # If we are in "Fit to Window" mode, or this is the first load
+        if self._fit_to_window:
+            self.fitInView(self.scene.itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def clear(self):
         self._current_pil = None
-        self._original_pil = None
-        self.img_label.hide()
+        self._empty = True
+        self._item.setPixmap(QPixmap())
         self.placeholder.show()
+        self._fit_to_window = True
+        self.resetTransform()
 
-    # resizing handling to rescale preview with debounce
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self._current_pil:
-            # During active resize, we stop any pending high-quality scale
-            # and wait for the user to stop moving.
-            self.resize_timer.start(150) # 150ms debounce
+        # Keep centered placeholder
+        self.placeholder.resize(self.width(), self.height())
+        
+        if self._fit_to_window and not self._empty:
+             self.fitInView(self.scene.itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-    def _on_resize_timeout(self):
-        if self._current_pil:
-            self.display_image(self._current_pil)
+    def wheelEvent(self, event: QWheelEvent):
+        if self._empty:
+            return
 
-    # drag & drop
+        # Zoom Logic
+        self._fit_to_window = False # User manually zoomed
+        
+        adj = self._zoom_factor
+        if event.angleDelta().y() < 0:
+            adj = 1.0 / self._zoom_factor
+        
+        self.scale(adj, adj)
+
+    def mousePressEvent(self, event: QMouseEvent):
+        # Click to open if empty
+        if self._empty and event.button() == Qt.LeftButton:
+             self.request_open.emit("")
+             return
+             
+        super().mousePressEvent(event)
+
+    # Drag & Drop
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -96,10 +128,3 @@ class ImageView(QWidget):
         if urls:
             path = urls[0].toLocalFile()
             self.request_open.emit(path)
-
-    # clicking to open - only when no image is loaded
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton and self._current_pil is None:
-            # Emit empty string to signal "user wants to open A file"
-            # MainWindow will handle the dialog.
-            self.request_open.emit("")
