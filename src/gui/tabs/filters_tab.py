@@ -5,7 +5,9 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QLabel,
-    QSlider
+    QSlider,
+    QGroupBox,
+    QFormLayout
 )
 from PySide6.QtCore import Signal, Qt
 
@@ -18,63 +20,104 @@ class FiltersTab(QWidget):
         self.core = core
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
 
         container = QWidget()
         self.vbox = QVBoxLayout(container)
-        self.vbox.setSpacing(10)
+        self.vbox.setSpacing(15)
+        self.vbox.setContentsMargins(10, 10, 10, 10)
 
         # Track active slider values
+        # Structure: { filter_name: { param_name: value } }
         self.slider_values = {}
+        # Structure: { filter_name: { param_name: widget } }
         self.slider_widgets = {}
+        
+        # State tracking for undo/redo
         self.slider_state_before_move = {}
+
+        # Separate filters into Parametric (Sliders) and Simple (Buttons)
+        param_filters = []
+        simple_filters = []
 
         for name in sorted(self.core.filters.keys()):
             filter_obj = self.core.filters[name]
-
-            # ---------- PARAMETER FILTER (e.g. Brightness, Contrast) ----------
             if getattr(filter_obj, "HAS_PARAMS", False):
-                self.slider_values[name] = 50  # default neutral
+                param_filters.append(name)
+            else:
+                simple_filters.append(name)
 
-                label = QLabel(name)
-                label.setStyleSheet("font-weight: bold;")
-                self.vbox.addWidget(label)
+        # --- 1. Parametric Filters Grouped ---
+        for name in param_filters:
+            filter_obj = self.core.filters[name]
+            params = getattr(filter_obj, "PARAMS", {})
+            
+            # Use QGroupBox for better visual separation
+            group = QGroupBox(name)
+            group.setStyleSheet("QGroupBox { font-weight: bold; border: 1px solid #ccc; border-radius: 6px; margin-top: 6px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }")
+            group_layout = QVBoxLayout(group)
+            
+            self.slider_values[name] = {}
+            self.slider_widgets[name] = {}
 
+            for param_key, param_info in params.items():
+                # Default param setup
+                min_val = param_info.get("min", 0)
+                max_val = param_info.get("max", 100)
+                default_val = param_info.get("default", 0)
+                label_text = param_info.get("label", param_key.capitalize())
+
+                # Initialize value
+                self.slider_values[name][param_key] = default_val
+
+                # UI Row
+                row_layout = QVBoxLayout()
+                lbl = QLabel(label_text)
+                lbl.setStyleSheet("color: #555; font-size: 11px;")
+                
                 slider = QSlider(Qt.Horizontal)
-                slider.setMinimum(0)
-                slider.setMaximum(100)
-                slider.setValue(50) 
+                slider.setMinimum(min_val)
+                slider.setMaximum(max_val)
+                slider.setValue(default_val)
                 slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
                 
-                # Add tick marks
-                slider.setTickPosition(QSlider.TicksBelow)
-                slider.setTickInterval(25)
-
+                # Connect signals
                 slider.valueChanged.connect(
-                    lambda value, n=name: self.on_slider_changed(n, value)
+                    lambda value, n=name, k=param_key: self.on_slider_changed(n, k, value)
                 )
-                
-                # Undo tracking: capture state BEFORE move starts
                 slider.sliderPressed.connect(self.capture_before_move)
-                # Auto-save history when slider is released + trigger full preview update (with size)
                 slider.sliderReleased.connect(
                     lambda n=name: self.on_slider_released(n)
                 )
 
-                self.vbox.addWidget(slider)
-                self.slider_widgets[name] = slider
+                self.slider_widgets[name][param_key] = slider
+                
+                row_layout.addWidget(lbl)
+                row_layout.addWidget(slider)
+                group_layout.addLayout(row_layout)
+            
+            self.vbox.addWidget(group)
 
-            # ---------- SIMPLE FILTER ----------
-            else:
+        # --- 2. Simple Filters (Buttons) ---
+        if simple_filters:
+            simple_group = QGroupBox("Quick Effects")
+            simple_group.setStyleSheet("QGroupBox { font-weight: bold; border: 1px solid #ccc; border-radius: 6px; margin-top: 6px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }")
+            simple_layout = QVBoxLayout(simple_group)
+            
+            for name in simple_filters:
                 btn = QPushButton(name)
                 btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                btn.setCursor(Qt.PointingHandCursor)
                 btn.clicked.connect(
                     lambda checked=False, n=name: self.apply_simple_filter(n)
                 )
-                self.vbox.addWidget(btn)
+                simple_layout.addWidget(btn)
+            
+            self.vbox.addWidget(simple_group)
 
         self.vbox.addStretch(1)
         scroll.setWidget(container)
@@ -97,25 +140,40 @@ class FiltersTab(QWidget):
 
     def capture_before_move(self):
         """Store the current positions before a new adjustment starts."""
-        self.slider_state_before_move = self.slider_values.copy()
-
+        # Deep copy needed for nested dictionaries
+        import copy
+        self.slider_state_before_move = copy.deepcopy(self.slider_values)
 
     def get_active_filters(self):
-        """Build the list of active filters with their current slider values."""
+        """
+        Build the list of active filters with their current slider values.
+        Returns list of (filter_name, kwargs_dict)
+        """
         filter_list = []
-        for name, value in self.slider_values.items():
-            if value != 50:
-                delta = (value - 50) * 2
-                filter_list.append((name, {"delta": delta}))
+        for name, params_dict in self.slider_values.items():
+            # Check if any param is different from default
+            # We need to know default values to check "is active" efficiently.
+            # Or just send everything. 
+            # Optimization: check against default in core's filter params.
+            
+            is_active = False
+            filter_def = self.core.filters[name].PARAMS
+            
+            cleaned_params = {}
+            for k, v in params_dict.items():
+                cleaned_params[k] = v
+                if v != filter_def[k]["default"]:
+                    is_active = True
+            
+            if is_active:
+                filter_list.append((name, cleaned_params))
+                
         return filter_list
 
     def on_slider_released(self, name):
         """Handle slider release: save state to history without 'baking' into base."""
-        val = self.slider_values.get(name, 50)
-        # nice format like "Brightness: +10" or "Contrast: -5"
-        diff = val - 50
-        sign = "+" if diff > 0 else ""
-        desc = f"{name}: {sign}{diff}"
+        # Create a description of what changed
+        desc = f"Adjust {name}"
         
         self.core.push_history(self.slider_values, description=desc)
         
@@ -124,8 +182,8 @@ class FiltersTab(QWidget):
         except Exception:
             pass
 
-    def on_slider_changed(self, name, value):
-        self.slider_values[name] = value
+    def on_slider_changed(self, filter_name, param_key, value):
+        self.slider_values[filter_name][param_key] = value
         self.apply_combined_filters()
 
     def apply_combined_filters(self):
@@ -136,24 +194,38 @@ class FiltersTab(QWidget):
         
         # If no sliders are active, just show original base
         if not filter_list:
-            self.core.current_image = self.core.original_image.copy()
+            if self.core.original_image:
+                self.core.current_image = self.core.original_image.copy()
         else:
             self.core.apply_preview_filters(filter_list)
         
         self.filter_applied.emit()
 
     def reset_all_sliders(self):
-        self.set_slider_state({name: 50 for name in self.slider_values})
+        # iterate all filters and reset to default
+        new_state = {}
+        for name, params_dict in self.slider_values.items():
+            new_state[name] = {}
+            filter_def = self.core.filters[name].PARAMS
+            for k in params_dict.keys():
+                new_state[name][k] = filter_def[k]["default"]
+                
+        self.set_slider_state(new_state)
 
     def set_slider_state(self, state):
         """Update slider positions from a dictionary without triggering new calculations."""
-        self.slider_values = state.copy()
+        # State structure: { filter_name: { param: value } }
+        import copy
+        self.slider_values = copy.deepcopy(state)
         
-        for name, slider in self.slider_widgets.items():
-            val = state.get(name, 50)
-            slider.blockSignals(True)
-            slider.setValue(val)
-            slider.blockSignals(False)
+        for name, params_dict in self.slider_widgets.items():
+            if name in state:
+                for k, slider in params_dict.items():
+                    if k in state[name]:
+                        val = state[name][k]
+                        slider.blockSignals(True)
+                        slider.setValue(val)
+                        slider.blockSignals(False)
         
         # update display based on restored state
         self.apply_combined_filters()
