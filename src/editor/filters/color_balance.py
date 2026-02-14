@@ -30,32 +30,22 @@ def run(img: Image.Image, red: int = 0, green: int = 0, blue: int = 0) -> Image.
     if red == 0 and green == 0 and blue == 0:
         return img
 
-    # Simple lookup table approach for speed
-    def get_lut(shift):
-        lut = []
-        for i in range(256):
-            # Shift value. 
-            # 100 shift means mapping 0->0, 128->255?
-            # Let's try simple addition with clamping
-            # Shift of 100 adds 100 to the value? That's too strong.
-            # Let's say max shift adds/subtracts 50 intensity levels?
-            val = i + (shift * 1.0) # scaling shift if needed
-            val = max(0, min(255, int(val)))
-            lut.append(val)
-        return lut
-
-    # 1.0 means full shift?
-    # Let's map -100..100 to -100..100 pixel values for now, effectively changing brightness of channel
-    # Or maybe midtone shift?
+    # Use Matrix for speed
+    # We are just adding offsets to channels
+    # red=100 -> +50 brightness? let's stick to previous logic roughly.
+    # Previous logic: val = i + shift
+    # shift was just passed directly? No, I decided "shift * 1.0".
+    # So red=100 adds 100 to R.
     
-    # Let's use image split and point transforms
-    r_lut = get_lut(red)
-    g_lut = get_lut(green)
-    b_lut = get_lut(blue)
+    # 4x3 matrix for convert
+    # R' = 1*R + 0*G + 0*B + r_shift
+    # G' = 0*R + 1*G + 0*B + g_shift
+    # B' = 0*R + 0*G + 1*B + b_shift
     
-    bands = img.split()
-    r = bands[0].point(r_lut)
-    g = bands[1].point(g_lut)
-    b = bands[2].point(b_lut)
+    matrix = [
+        1, 0, 0, red,
+        0, 1, 0, green,
+        0, 0, 1, blue
+    ]
     
-    return Image.merge("RGB", (r, g, b))
+    return img.convert("RGB", matrix=matrix)
