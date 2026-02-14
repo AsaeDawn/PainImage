@@ -34,6 +34,7 @@ class EditorCore:
         self.original_image = None          # LAST COMMITTED IMAGE (BASE FOR SLIDERS)
         self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
         self.preview_base_image = None
+        self.preview_proxy = None
         self.in_preview = False
         self.current_format = "PNG"         # DEFAULT FORMAT
 

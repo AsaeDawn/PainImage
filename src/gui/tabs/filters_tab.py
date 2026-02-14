@@ -188,6 +188,9 @@ class FiltersTab(QWidget):
 
     def apply_combined_filters(self):
         """Apply all active sliders to the current base image."""
+        if self.core.original_image is None:
+            return
+
         self.core.in_preview = True # Ensure preview mode is active
         
         filter_list = self.get_active_filters()
