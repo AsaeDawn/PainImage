@@ -1,0 +1,28 @@
+{
+    "name": "PainImage Dev Container",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylint"
+            ]
+        }
+    },
+    "forwardPorts": [
+        6080
+    ],
+    "portsAttributes": {
+        "6080": {
+            "label": "VNC Desktop",
+            "onAutoForward": "notify"
+        }
+    },
+    "postStartCommand": "nohup bash /usr/local/bin/start-vnc.sh > /tmp/vnc.log 2>&1 &",
+    "remoteEnv": {
+        "DISPLAY": ":1"
+    }
+}
