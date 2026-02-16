@@ -34,6 +34,7 @@ class EditorCore:
         self.original_image = None          # LAST COMMITTED IMAGE (BASE FOR SLIDERS)
         self.current_image: Image.Image = None  # PREVIEW / DISPLAY IMAGE
         self.preview_base_image = None
+        self.preview_proxy = None
         self.in_preview = False
         self.current_format = "PNG"         # DEFAULT FORMAT
 
@@ -222,12 +223,12 @@ class EditorCore:
     # =====================================================
     # DESTRUCTIVE FILTERS (BUTTON FILTERS)
     # =====================================================
-    def apply_filter(self, name, **kwargs):
+    def apply_filter(self, name, slider_state=None, **kwargs):
         if name not in self.filters or self.original_image is None:
             return False
 
         # Build-in push history for destructive filters
-        self.push_history(description=name)
+        self.push_history(slider_state=slider_state, description=name)
 
         module = self.filters[name]
 

@@ -78,9 +78,10 @@ class MainWindow(QMainWindow):
 
         # Sidebar (right)
         self.sidebar = SideBar(self.core, parent=self)
-        # When a filter is applied inside FiltersTab → refresh preview
-        self.sidebar.filters_tab.filter_applied.connect(self.refresh_preview)
-
+        # When a filter is applied inside FiltersTab → refresh preview + Re-apply Colors
+        self.sidebar.filters_tab.filter_applied.connect(self.on_filter_applied_destructive)
+        # When a color slider is moved -> refresh preview
+        self.sidebar.colors_tab.filter_applied.connect(self.refresh_preview)
 
         # History Panel (Left, hidden by default)
         self.history_panel = HistoryPanel(self)
@@ -133,6 +134,15 @@ class MainWindow(QMainWindow):
     def _open_path(self, path):
         # Use core to load image
         self.core.load_image(path)
+        # Make sure sliders reset when new image loaded?
+        # Initial image has default sliders.
+        # But we might need to reset UI sliders to 0.
+        # Only if we want to reset adjustments for new image.
+        # Yes, usually.
+        # We can't easily reach into ColorsTab from here without strong coupling.
+        # But FilterTab did it before.
+        # For now, let's leave it, but maybe resetting is good.
+        
         # refresh preview
         self.refresh_preview()
         self._showing_original = False
@@ -172,12 +182,15 @@ class MainWindow(QMainWindow):
     def on_undo(self):
         def _on_undo_finished(slider_state):
             if slider_state is not None:
-                self.sidebar.filters_tab.set_slider_state(slider_state)
+                # Update ColorsTab with restored state
+                self.sidebar.colors_tab.set_slider_state(slider_state)
+                # Note: set_slider_state calls apply_combined_filters which calls filter_applied, calling refresh_preview
+                # But explicit refresh implies we are sure.
                 self.refresh_preview()
 
         self.run_background_task(
             self.core.undo,
-            kwargs={"current_slider_state": self.sidebar.filters_tab.slider_values},
+            kwargs={"current_slider_state": self.sidebar.colors_tab.slider_values},
             on_finished=_on_undo_finished,
             msg="Undoing..."
         )
@@ -185,15 +198,21 @@ class MainWindow(QMainWindow):
     def on_redo(self):
         def _on_redo_finished(slider_state):
             if slider_state is not None:
-                self.sidebar.filters_tab.set_slider_state(slider_state)
+                self.sidebar.colors_tab.set_slider_state(slider_state)
                 self.refresh_preview()
 
         self.run_background_task(
             self.core.redo,
-            kwargs={"current_slider_state": self.sidebar.filters_tab.slider_values},
+            kwargs={"current_slider_state": self.sidebar.colors_tab.slider_values},
             on_finished=_on_redo_finished,
             msg="Redoing..."
         )
+
+    def on_filter_applied_destructive(self):
+        """Called when a destructive filter (button) is applied."""
+        # The base image changed. We must re-apply current sliders on top of it.
+        self.sidebar.colors_tab.apply_combined_filters()
+        self.refresh_preview()
 
     def on_toggle_history(self):
         if self.history_panel.isVisible():

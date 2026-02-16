@@ -4,8 +4,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QPushButton,
     QSizePolicy,
-    QLabel,
-    QSlider
+    QGroupBox
 )
 from PySide6.QtCore import Signal, Qt
 
@@ -18,63 +17,41 @@ class FiltersTab(QWidget):
         self.core = core
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
 
         container = QWidget()
         self.vbox = QVBoxLayout(container)
-        self.vbox.setSpacing(10)
+        self.vbox.setSpacing(15)
+        self.vbox.setContentsMargins(10, 10, 10, 10)
 
-        # Track active slider values
-        self.slider_values = {}
-        self.slider_widgets = {}
-        self.slider_state_before_move = {}
+        # Separate filters into Parametric (Sliders) and Simple (Buttons)
+        simple_filters = []
 
         for name in sorted(self.core.filters.keys()):
             filter_obj = self.core.filters[name]
+            if not getattr(filter_obj, "HAS_PARAMS", False):
+                simple_filters.append(name)
 
-            # ---------- PARAMETER FILTER (e.g. Brightness, Contrast) ----------
-            if getattr(filter_obj, "HAS_PARAMS", False):
-                self.slider_values[name] = 50  # default neutral
-
-                label = QLabel(name)
-                label.setStyleSheet("font-weight: bold;")
-                self.vbox.addWidget(label)
-
-                slider = QSlider(Qt.Horizontal)
-                slider.setMinimum(0)
-                slider.setMaximum(100)
-                slider.setValue(50) 
-                slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-                
-                # Add tick marks
-                slider.setTickPosition(QSlider.TicksBelow)
-                slider.setTickInterval(25)
-
-                slider.valueChanged.connect(
-                    lambda value, n=name: self.on_slider_changed(n, value)
-                )
-                
-                # Undo tracking: capture state BEFORE move starts
-                slider.sliderPressed.connect(self.capture_before_move)
-                # Auto-save history when slider is released + trigger full preview update (with size)
-                slider.sliderReleased.connect(
-                    lambda n=name: self.on_slider_released(n)
-                )
-
-                self.vbox.addWidget(slider)
-                self.slider_widgets[name] = slider
-
-            # ---------- SIMPLE FILTER ----------
-            else:
+        # --- Simple Filters (Buttons) ---
+        if simple_filters:
+            simple_group = QGroupBox("Quick Effects")
+            simple_group.setStyleSheet("QGroupBox { font-weight: bold; border: 1px solid #ccc; border-radius: 6px; margin-top: 6px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }")
+            simple_layout = QVBoxLayout(simple_group)
+            
+            for name in simple_filters:
                 btn = QPushButton(name)
                 btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                btn.setCursor(Qt.PointingHandCursor)
                 btn.clicked.connect(
                     lambda checked=False, n=name: self.apply_simple_filter(n)
                 )
-                self.vbox.addWidget(btn)
+                simple_layout.addWidget(btn)
+            
+            self.vbox.addWidget(simple_group)
 
         self.vbox.addStretch(1)
         scroll.setWidget(container)
@@ -82,78 +59,23 @@ class FiltersTab(QWidget):
 
     # -------------------------
     def apply_simple_filter(self, name):
-        """Apply a destructive filter to the base image. Sliders are not touched."""
-        def _on_finished(ok):
-            # Re-apply slider preview on top of the new base
-            self.apply_combined_filters()
-            self.window().refresh_preview()
+        """Apply a destructive filter to the base image."""
+        
+        # Capture current slider state from sibling ColorsTab to ensure it persists in history
+        slider_state = {}
+        if self.parent() and hasattr(self.parent(), "colors_tab"):
+            slider_state = self.parent().colors_tab.slider_values
 
+        def _on_finished(ok):
+            # We need to refresh the preview.
+            # But we also need to re-apply any active sliders from the Colors tab!
+            # The MainWindow or Sidebar should handle this coordination.
+            self.filter_applied.emit()
+            
         self.window().run_background_task(
             self.core.apply_filter,
             args=[name],
+            kwargs={"slider_state": slider_state},
             on_finished=_on_finished,
             msg=f"Applying {name}..."
         )
-
-    def capture_before_move(self):
-        """Store the current positions before a new adjustment starts."""
-        self.slider_state_before_move = self.slider_values.copy()
-
-
-    def get_active_filters(self):
-        """Build the list of active filters with their current slider values."""
-        filter_list = []
-        for name, value in self.slider_values.items():
-            if value != 50:
-                delta = (value - 50) * 2
-                filter_list.append((name, {"delta": delta}))
-        return filter_list
-
-    def on_slider_released(self, name):
-        """Handle slider release: save state to history without 'baking' into base."""
-        val = self.slider_values.get(name, 50)
-        # nice format like "Brightness: +10" or "Contrast: -5"
-        diff = val - 50
-        sign = "+" if diff > 0 else ""
-        desc = f"{name}: {sign}{diff}"
-        
-        self.core.push_history(self.slider_values, description=desc)
-        
-        try:
-            self.window().refresh_preview(estimate_size=True)
-        except Exception:
-            pass
-
-    def on_slider_changed(self, name, value):
-        self.slider_values[name] = value
-        self.apply_combined_filters()
-
-    def apply_combined_filters(self):
-        """Apply all active sliders to the current base image."""
-        self.core.in_preview = True # Ensure preview mode is active
-        
-        filter_list = self.get_active_filters()
-        
-        # If no sliders are active, just show original base
-        if not filter_list:
-            self.core.current_image = self.core.original_image.copy()
-        else:
-            self.core.apply_preview_filters(filter_list)
-        
-        self.filter_applied.emit()
-
-    def reset_all_sliders(self):
-        self.set_slider_state({name: 50 for name in self.slider_values})
-
-    def set_slider_state(self, state):
-        """Update slider positions from a dictionary without triggering new calculations."""
-        self.slider_values = state.copy()
-        
-        for name, slider in self.slider_widgets.items():
-            val = state.get(name, 50)
-            slider.blockSignals(True)
-            slider.setValue(val)
-            slider.blockSignals(False)
-        
-        # update display based on restored state
-        self.apply_combined_filters()
