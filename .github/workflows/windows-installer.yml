@@ -10,6 +10,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      id-token: write
 
     defaults:
       run:
@@ -35,7 +36,7 @@ jobs:
           pyinstaller `
             --name PainImage `
             --windowed `
-            --onefile `
+            --onedir `
             --icon gui/app.ico `
             --collect-submodules PySide6 `
             --collect-all editor `
@@ -44,6 +45,10 @@ jobs:
             --add-data "editor/ai_features/upscaler/model;editor/ai_features/upscaler/model" `
             main.py
 
+      - name: Download VC++ Redistributable
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "dist/PainImage/vc_redist.x64.exe"
+
       - name: Install Inno Setup
         run: |
           choco install innosetup -y
@@ -51,6 +56,17 @@ jobs:
       - name: Create installer
         run: |
           iscc installer.iss
+
+      - name: Debug Filesystem
+        run: |
+          dir -Recurse Output
+          dir -Recurse dist
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: PainImage-Windows-Installer
+          path: src/Output/PainImage-Setup.exe
 
       - name: Create Release
         id: create_release
