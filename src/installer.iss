@@ -17,5 +17,5 @@ Name: "{group}\PainImage"; Filename: "{app}\PainImage.exe"
 Name: "{commondesktop}\PainImage"; Filename: "{app}\PainImage.exe"
 
 [Run]
-Filename: "{app}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Visual C++ Runtime..."; Flags: waituntilterminated skipifnotexist
+Filename: "{app}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Visual C++ Runtime..."; Flags: waituntilterminated skipifdoesntexist
 Filename: "{app}\PainImage.exe"; Description: "Launch PainImage"; Flags: nowait postinstall
