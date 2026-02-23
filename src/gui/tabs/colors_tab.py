@@ -185,3 +185,17 @@ class ColorsTab(QWidget):
         
         # update display based on restored state
         self.apply_combined_filters()
+
+    def reset_all_sliders(self):
+        """Reset all sliders to their default values."""
+        for name in list(self.slider_values.keys()):
+            filter_def = self.core.filters[name].PARAMS
+            for k in list(self.slider_values[name].keys()):
+                default = filter_def[k]["default"]
+                self.slider_values[name][k] = default
+                if name in self.slider_widgets and k in self.slider_widgets[name]:
+                    self.slider_widgets[name][k].blockSignals(True)
+                    self.slider_widgets[name][k].setValue(default)
+                    self.slider_widgets[name][k].blockSignals(False)
+        self.core.in_preview = False
+

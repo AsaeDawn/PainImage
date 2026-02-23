@@ -114,12 +114,12 @@ class ToolsTab(QWidget):
                 return
 
             # Get current active adjustments to bake
-            active_filters = self.window().sidebar.filters_tab.get_active_filters()
-            slider_values = self.window().sidebar.filters_tab.slider_values.copy()
+            active_filters = self.window().sidebar.colors_tab.get_active_filters()
+            slider_values = self.window().sidebar.colors_tab.slider_values.copy()
 
             def _on_tool_finished(res):
                 if res:
-                    self.window().sidebar.filters_tab.reset_all_sliders()
+                    self.window().sidebar.colors_tab.reset_all_sliders()
                     self.window().refresh_preview()
 
             if name == "Resize Image":
@@ -163,7 +163,7 @@ class ToolsTab(QWidget):
                 
                 def _on_convert_finished(res):
                     if res:
-                        self.window().sidebar.filters_tab.reset_all_sliders()
+                        self.window().sidebar.colors_tab.reset_all_sliders()
                         saved_path = self.core.save_auto()
                         if saved_path:
                             try: self.window().statusBar().showMessage(f"Saved to: {saved_path}", 5000)
@@ -232,8 +232,8 @@ class ToolsTab(QWidget):
             return
             
         # 2. Apply via Core
-        active_filters = self.window().sidebar.filters_tab.get_active_filters()
-        slider_values = self.window().sidebar.filters_tab.slider_values.copy()
+        active_filters = self.window().sidebar.colors_tab.get_active_filters()
+        slider_values = self.window().sidebar.colors_tab.slider_values.copy()
         
         def _task():
             if active_filters:
@@ -243,7 +243,7 @@ class ToolsTab(QWidget):
         def _on_finished(res):
             self.on_crop_cancel() # Exit crop mode logic
             if res:
-                self.window().sidebar.filters_tab.reset_all_sliders()
+                self.window().sidebar.colors_tab.reset_all_sliders()
                 self.window().refresh_preview()
 
         self.window().run_background_task(
