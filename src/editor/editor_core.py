@@ -1,6 +1,7 @@
 import sys
 import os
 import importlib
+import importlib.util
 import tempfile
 import shutil
 import io
@@ -194,10 +195,28 @@ class EditorCore:
         ai_path = os.path.join(os.path.dirname(__file__), "ai_features")
 
         if not os.path.exists(ai_path):
-            # fallback
+            # fallback for frozen apps
             ai_path = resource_path("editor/ai_features")
             if not os.path.exists(ai_path):
+                print(f"[AI] ai_features directory not found")
                 return features
+
+        print(f"[AI] Scanning ai_features at: {ai_path}")
+
+        # Ensure the parent package 'editor.ai_features' is registered
+        # so that relative imports inside feature modules work correctly
+        ai_pkg_name = "editor.ai_features"
+        if ai_pkg_name not in sys.modules:
+            ai_init = os.path.join(ai_path, "__init__.py")
+            if os.path.exists(ai_init):
+                ai_spec = importlib.util.spec_from_file_location(
+                    ai_pkg_name, ai_init,
+                    submodule_search_locations=[ai_path]
+                )
+                if ai_spec:
+                    ai_mod = importlib.util.module_from_spec(ai_spec)
+                    sys.modules[ai_pkg_name] = ai_mod
+                    ai_spec.loader.exec_module(ai_mod)
 
         for folder in os.listdir(ai_path):
             try:
@@ -209,14 +228,43 @@ class EditorCore:
                 if not os.path.exists(feature_file):
                     continue
 
+                # Register the sub-package (e.g. editor.ai_features.upscaler)
+                # so relative imports inside feature.py work
+                pkg_name = f"editor.ai_features.{folder}"
+                if pkg_name not in sys.modules:
+                    pkg_init = os.path.join(dir_path, "__init__.py")
+                    if os.path.exists(pkg_init):
+                        pkg_spec = importlib.util.spec_from_file_location(
+                            pkg_name, pkg_init,
+                            submodule_search_locations=[dir_path]
+                        )
+                        if pkg_spec:
+                            pkg_mod = importlib.util.module_from_spec(pkg_spec)
+                            sys.modules[pkg_name] = pkg_mod
+                            pkg_spec.loader.exec_module(pkg_mod)
+
+                # Load the feature module itself
                 module_name = f"editor.ai_features.{folder}.feature"
-                module = importlib.import_module(module_name)
+                spec = importlib.util.spec_from_file_location(
+                    module_name, feature_file,
+                    submodule_search_locations=[dir_path]
+                )
+                if spec is None or spec.loader is None:
+                    print(f"[AI] Could not create spec for {folder}")
+                    continue
+
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
 
                 name = getattr(module, "AI_NAME", folder)
                 cls = getattr(module, "AI_CLASS")
                 features[name] = cls()
+                print(f"[AI] Loaded feature: {name}")
             except Exception as e:
-                print(f"Error loading AI feature {folder}: {e}")
+                import traceback
+                print(f"[AI] Error loading AI feature '{folder}': {e}")
+                traceback.print_exc()
 
         return features
 

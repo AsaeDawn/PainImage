@@ -3,9 +3,15 @@ import sys
 
 class UpscaleModelManager:
     def __init__(self):
-        self.model_dir = os.path.join(
-            os.path.dirname(__file__), "model"
-        )
+        if hasattr(sys, "_MEIPASS"):
+            # PyInstaller frozen build: model data is bundled via --add-data
+            self.model_dir = os.path.join(
+                sys._MEIPASS, "editor", "ai_features", "upscaler", "model"
+            )
+        else:
+            self.model_dir = os.path.join(
+                os.path.dirname(__file__), "model"
+            )
 
     def exists(self):
         # Check platform-specific binary
