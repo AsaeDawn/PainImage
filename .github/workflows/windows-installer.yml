@@ -42,7 +42,10 @@ jobs:
             --collect-all editor `
             --add-data "editor/filters;editor/filters" `
             --add-data "editor/tools;editor/tools" `
-            --add-data "editor/ai_features/upscaler/model;editor/ai_features/upscaler/model" `
+            --add-data "editor/ai_features;editor/ai_features" `
+            --hidden-import editor.ai_features.upscaler.feature `
+            --hidden-import editor.ai_features.upscaler.upscaler_engine `
+            --hidden-import editor.ai_features.upscaler.upscale_manager `
             main.py
 
       - name: Download VC++ Redistributable

@@ -256,6 +256,15 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("No image loaded", 3000)
             return
 
+        if self.upscaler is None:
+            QMessageBox.critical(
+                self, "AI Error",
+                "The AI Upscaler feature could not be loaded.\n\n"
+                "This usually means the AI model files are missing or the "
+                "feature failed to initialize. Check the console for details."
+            )
+            return
+
         self.statusBar().showMessage("AI Upscaling in progress... please wait.")
         self.sidebar.ai_tab.start_progress()
         self.topbar.setEnabled(False)
